@@ -1,0 +1,17 @@
+# Normaliza quebras de linha: LF no repositório, CRLF no checkout Windows
+* text=auto
+
+# Forçar LF para código fonte
+*.cs    text eol=lf
+*.tsx   text eol=lf
+*.ts    text eol=lf
+*.js    text eol=lf
+*.json  text eol=lf
+*.css   text eol=lf
+*.html  text eol=lf
+*.md    text eol=lf
+
+# Binários — não converter
+*.png   binary
+*.jpg   binary
+*.ico   binary

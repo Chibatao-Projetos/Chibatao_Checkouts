@@ -1,0 +1,25 @@
+# ── Pastas de ferramentas ───────────────────────────────────
+.claude/
+
+# ── Backend .NET ────────────────────────────────────────────
+backend/**/bin/
+backend/**/obj/
+backend/**/*.db
+backend/**/*.db-shm
+backend/**/*.db-wal
+backend/**/appsettings.Development.json
+
+# ── Frontend Node ────────────────────────────────────────────
+frontend/**/node_modules/
+frontend/**/.env
+frontend/**/.env.local
+frontend/**/.env.*.local
+frontend/**/build/
+frontend/**/.DS_Store
+frontend/**/npm-debug.log*
+frontend/**/yarn-debug.log*
+frontend/**/yarn-error.log*
+
+# ── OS ───────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
