@@ -35,7 +35,6 @@ const Topbar: React.FC<TopbarProps> = ({ onToggle }) => {
       '/acessos/rh':            { title: 'Aprovações — RH',           subtitle: 'Validações e aprovações de Recursos Humanos.' },
       '/acessos/portaria':      { title: 'Controle de Portaria',      subtitle: 'Registro de saídas e retornos em tempo real.' },
       '/usuario/perfil':        { title: 'Meu Perfil',                subtitle: 'Informações cadastrais e segurança da conta.' },
-      '/nova-solicitacao':      { title: 'Nova Solicitação de Saída', subtitle: 'Preencha os dados para solicitar autorização.' },
       '/admin':                 { title: 'Administração',             subtitle: 'Gerenciamento de usuários e perfis de acesso.' },
     };
     return map[pathname] ?? { title: 'Painel' };

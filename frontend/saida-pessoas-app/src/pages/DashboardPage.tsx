@@ -261,7 +261,7 @@ const DashboardPage: React.FC = () => {
             <ExportButton data={data} />
             {canCreate && (
               <button
-                onClick={() => navigate('/nova-solicitacao')}
+                onClick={() => navigate('/solicitacoes/pessoas', { state: { abrirNovaSolicitacao: true } })}
                 className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors font-medium"
               >
                 + Nova Solicitação

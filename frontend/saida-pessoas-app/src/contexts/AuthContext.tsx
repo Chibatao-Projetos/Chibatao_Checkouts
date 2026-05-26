@@ -4,7 +4,7 @@ import { authService } from '../services/api';
 
 interface AuthContextType {
   user: AuthUser | null;
-  login: (email: string, senha: string) => Promise<void>;
+  login: (identificacao: string, senha: string) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
 }
@@ -17,8 +17,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return stored ? (JSON.parse(stored) as AuthUser) : null;
   });
 
-  const login = useCallback(async (email: string, senha: string) => {
-    const { data } = await authService.login(email, senha);
+  const login = useCallback(async (identificacao: string, senha: string) => {
+    const { data } = await authService.login(identificacao, senha);
     localStorage.setItem('auth', JSON.stringify(data));
     setUser(data);
   }, []);

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { dashboardService } from '../services/api';
 import type { DashboardStats, PerfilUsuario } from '../types';
@@ -40,6 +41,7 @@ const KPI_MAP: Record<PerfilUsuario, KpiDef[]> = {
 
 const InicioPage: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const perfil = user!.perfil as PerfilUsuario;
   const [stats, setStats] = useState<DashboardStats | null>(null);
 
@@ -87,10 +89,12 @@ const InicioPage: React.FC = () => {
             Minhas Solicitações
           </a>
           {['Solicitante', 'Gestor', 'Admin'].includes(perfil) && (
-            <a href="/nova-solicitacao"
+            <button
+              type="button"
+              onClick={() => navigate('/solicitacoes/pessoas', { state: { abrirNovaSolicitacao: true } })}
               className="px-4 py-2 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 transition-colors font-medium">
               + Nova Solicitação
-            </a>
+            </button>
           )}
           {perfil === 'Gestor' && (
             <a href="/acessos/gestor"

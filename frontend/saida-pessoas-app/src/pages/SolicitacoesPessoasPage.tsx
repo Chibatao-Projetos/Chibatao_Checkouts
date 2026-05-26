@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { solicitacaoService } from '../services/api';
 import type { ListParams } from '../services/api';
@@ -7,11 +7,13 @@ import type { PerfilUsuario, SolicitacaoResponse } from '../types';
 import DataTable from '../components/DataTable/DataTable';
 import FilterPanel from '../components/DataTable/FilterPanel';
 import ExportButton from '../components/DataTable/ExportButton';
+import NovaSolicitacaoModal from '../components/NovaSolicitacaoModal';
 
 const EMPTY = { nome: '', status: '', setor: '', tipoSaida: '', destino: '', dataInicio: '', dataFim: '' };
 
 const SolicitacoesPessoasPage: React.FC = () => {
   const { user } = useAuth();
+  const location = useLocation();
   const navigate = useNavigate();
   const perfil = user!.perfil as PerfilUsuario;
   const canCreate = ['Solicitante', 'Gestor', 'Admin'].includes(perfil);
@@ -23,6 +25,7 @@ const SolicitacoesPessoasPage: React.FC = () => {
   const [sortDesc, setSortDesc] = useState(true);
   const [filters, setFilters] = useState(EMPTY);
   const [loading, setLoading] = useState(false);
+  const [showModal, setShowModal] = useState(false);
   const pageSize = 10;
 
   const activeFilters = useMemo(
@@ -43,6 +46,15 @@ const SolicitacoesPessoasPage: React.FC = () => {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  // Open modal automatically if redirected with state flag (e.g. from InicioPage quick link)
+  useEffect(() => {
+    const state = location.state as { abrirNovaSolicitacao?: boolean } | null;
+    if (canCreate && state?.abrirNovaSolicitacao) {
+      setShowModal(true);
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location, canCreate, navigate]);
+
   return (
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-end">
@@ -50,7 +62,7 @@ const SolicitacoesPessoasPage: React.FC = () => {
           <ExportButton data={data} />
           {canCreate && (
             <button
-              onClick={() => navigate('/nova-solicitacao')}
+              onClick={() => setShowModal(true)}
               className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors font-medium"
             >
               + Nova Solicitação
@@ -77,6 +89,12 @@ const SolicitacoesPessoasPage: React.FC = () => {
           perfil={perfil} onAction={fetchData}
         />
       )}
+
+      <NovaSolicitacaoModal
+        show={showModal}
+        onClose={() => setShowModal(false)}
+        onCreated={() => { setPage(1); fetchData(); }}
+      />
     </div>
   );
 };

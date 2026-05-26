@@ -166,7 +166,7 @@ public class SolicitacoesController : ControllerBase
     }
 
     [HttpPut("{id}/aprovar-gestor")]
-    [Authorize(Roles = "Gestor")]
+    [Authorize(Roles = "Gestor,Admin")]
     public async Task<IActionResult> AprovarGestor(int id)
     {
         var s = await _context.Solicitacoes.FindAsync(id);
@@ -183,7 +183,7 @@ public class SolicitacoesController : ControllerBase
     }
 
     [HttpPut("{id}/reprovar-gestor")]
-    [Authorize(Roles = "Gestor")]
+    [Authorize(Roles = "Gestor,Admin")]
     public async Task<IActionResult> ReprovarGestor(int id, [FromBody] ReprovarDto dto)
     {
         if (string.IsNullOrWhiteSpace(dto.Motivo))
@@ -204,7 +204,7 @@ public class SolicitacoesController : ControllerBase
     }
 
     [HttpPut("{id}/aprovar-rh")]
-    [Authorize(Roles = "RH")]
+    [Authorize(Roles = "RH,Admin")]
     public async Task<IActionResult> AprovarRH(int id)
     {
         var s = await _context.Solicitacoes.FindAsync(id);
@@ -221,7 +221,7 @@ public class SolicitacoesController : ControllerBase
     }
 
     [HttpPut("{id}/reprovar-rh")]
-    [Authorize(Roles = "RH")]
+    [Authorize(Roles = "RH,Admin")]
     public async Task<IActionResult> ReprovarRH(int id, [FromBody] ReprovarDto dto)
     {
         if (string.IsNullOrWhiteSpace(dto.Motivo))
@@ -242,7 +242,7 @@ public class SolicitacoesController : ControllerBase
     }
 
     [HttpPut("{id}/registrar-saida")]
-    [Authorize(Roles = "Portaria")]
+    [Authorize(Roles = "Portaria,Admin")]
     public async Task<IActionResult> RegistrarSaida(int id, [FromBody] RegistrarSaidaDto dto)
     {
         var s = await _context.Solicitacoes.FindAsync(id);
@@ -261,7 +261,7 @@ public class SolicitacoesController : ControllerBase
     }
 
     [HttpPut("{id}/registrar-retorno")]
-    [Authorize(Roles = "Portaria")]
+    [Authorize(Roles = "Portaria,Admin")]
     public async Task<IActionResult> RegistrarRetorno(int id)
     {
         var s = await _context.Solicitacoes.FindAsync(id);

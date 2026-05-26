@@ -39,7 +39,7 @@ const ChibataoLogo = () => (
 const LoginPage: React.FC = () => {
   const { login }    = useAuth();
   const navigate     = useNavigate();
-  const [email, setEmail]   = useState('');
+  const [identificacao, setIdentificacao] = useState('');
   const [senha, setSenha]   = useState('');
   const [error, setError]   = useState('');
   const [loading, setLoading] = useState(false);
@@ -57,7 +57,7 @@ const LoginPage: React.FC = () => {
     setError('');
     setLoading(true);
     try {
-      await login(email, senha);
+      await login(identificacao.trim(), senha);
       navigate('/inicio');
     } catch (err: unknown) {
       setError(
@@ -104,13 +104,14 @@ const LoginPage: React.FC = () => {
 
             <form onSubmit={handleSubmit}>
               <div className="mb-3">
-                <label className="form-label">E-mail</label>
+                <label className="form-label">Login</label>
                 <input
-                  type="email"
+                  type="text"
                   className="form-control"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  placeholder="seu@email.com"
+                  value={identificacao}
+                  onChange={e => setIdentificacao(e.target.value)}
+                  placeholder="Digite seu e-mail ou matrícula"
+                  autoComplete="username"
                   required
                   autoFocus
                 />

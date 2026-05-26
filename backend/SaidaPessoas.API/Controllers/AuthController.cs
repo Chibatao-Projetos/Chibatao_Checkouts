@@ -26,8 +26,14 @@ public class AuthController : ControllerBase
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginDto dto)
     {
+        if (string.IsNullOrWhiteSpace(dto.Identificacao) || string.IsNullOrWhiteSpace(dto.Senha))
+            return Unauthorized(new { message = "Credenciais inválidas." });
+
+        var identificacao = dto.Identificacao.Trim();
+
+        // Permite login por e-mail ou matrícula
         var usuario = await _context.Usuarios
-            .FirstOrDefaultAsync(u => u.Email == dto.Email);
+            .FirstOrDefaultAsync(u => u.Email == identificacao || u.Matricula == identificacao);
 
         if (usuario == null || !BCrypt.Net.BCrypt.Verify(dto.Senha, usuario.SenhaHash))
             return Unauthorized(new { message = "Credenciais inválidas." });

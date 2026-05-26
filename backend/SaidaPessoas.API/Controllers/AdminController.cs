@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 using SaidaPessoas.API.Data;
 using SaidaPessoas.API.DTOs;
 using SaidaPessoas.API.Models;
@@ -15,6 +16,8 @@ public class AdminController : ControllerBase
     private readonly AppDbContext _context;
 
     public AdminController(AppDbContext context) => _context = context;
+
+    private int GetAdminId() => int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
 
     [HttpGet("usuarios")]
     public async Task<IActionResult> ListarUsuarios([FromQuery] string? status = null)
@@ -55,6 +58,36 @@ public class AdminController : ControllerBase
         usuario.Status = StatusUsuario.Inativo;
         await _context.SaveChangesAsync();
         return Ok(new { message = "Usuário rejeitado." });
+    }
+
+    [HttpPut("usuarios/{id}/bloquear")]
+    public async Task<IActionResult> BloquearUsuario(int id)
+    {
+        if (id == GetAdminId())
+            return BadRequest(new { message = "Você não pode bloquear sua própria conta." });
+
+        var usuario = await _context.Usuarios.FindAsync(id);
+        if (usuario == null) return NotFound();
+        if (usuario.Status == StatusUsuario.Inativo)
+            return BadRequest(new { message = "Usuário já está bloqueado." });
+
+        usuario.Status = StatusUsuario.Inativo;
+        await _context.SaveChangesAsync();
+        return Ok(new { message = "Usuário bloqueado com sucesso." });
+    }
+
+    [HttpDelete("usuarios/{id}")]
+    public async Task<IActionResult> ExcluirUsuario(int id)
+    {
+        if (id == GetAdminId())
+            return BadRequest(new { message = "Você não pode excluir sua própria conta." });
+
+        var usuario = await _context.Usuarios.FindAsync(id);
+        if (usuario == null) return NotFound();
+
+        _context.Usuarios.Remove(usuario);
+        await _context.SaveChangesAsync();
+        return Ok(new { message = "Usuário excluído permanentemente." });
     }
 
     [HttpPut("usuarios/{id}/perfil")]

@@ -12,7 +12,6 @@ import AcessosGestorPage     from './pages/AcessosGestorPage';
 import AcessosRHPage         from './pages/AcessosRHPage';
 import AcessosPortariaPage   from './pages/AcessosPortariaPage';
 import PerfilPage            from './pages/PerfilPage';
-import SolicitacaoFormPage   from './pages/SolicitacaoFormPage';
 import AdminPage             from './pages/AdminPage';
 
 // Redirect authenticated users away from guest routes
@@ -42,10 +41,10 @@ const AppRoutes: React.FC = () => (
       <Route path="/acessos/rh"             element={<AcessosRHPage />} />
       <Route path="/acessos/portaria"        element={<AcessosPortariaPage />} />
       <Route path="/usuario/perfil"          element={<PerfilPage />} />
-      <Route path="/nova-solicitacao"        element={<SolicitacaoFormPage />} />
       <Route path="/admin"                   element={<AdminRoute element={<AdminPage />} />} />
-      {/* Legacy redirect */}
-      <Route path="/dashboard"              element={<Navigate to="/inicio" replace />} />
+      {/* Legacy redirects */}
+      <Route path="/dashboard"               element={<Navigate to="/inicio" replace />} />
+      <Route path="/nova-solicitacao"        element={<Navigate to="/solicitacoes/pessoas" replace state={{ abrirNovaSolicitacao: true }} />} />
     </Route>
 
     <Route path="*" element={<Navigate to="/inicio" replace />} />

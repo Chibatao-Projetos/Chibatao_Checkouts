@@ -42,7 +42,7 @@ public record SolicitacaoResponseDto(
     DateTime? DataAprovacaoRH
 );
 
-public record LoginDto(string Email, string Senha);
+public record LoginDto(string Identificacao, string Senha);
 
 public record LoginResponseDto(string Token, string Nome, string Perfil, int UserId, string Setor);
 

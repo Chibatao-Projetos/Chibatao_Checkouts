@@ -49,8 +49,8 @@ export interface ListParams {
 }
 
 export const authService = {
-  login: (email: string, senha: string) =>
-    api.post<AuthUser>('/auth/login', { email, senha }),
+  login: (identificacao: string, senha: string) =>
+    api.post<AuthUser>('/auth/login', { identificacao, senha }),
 
   registro: (dto: RegistroDto) =>
     api.post<{ message: string }>('/auth/registro', dto),
@@ -110,6 +110,12 @@ export const adminService = {
 
   alterarSenha: (id: number, novaSenha: string) =>
     api.put(`/admin/usuarios/${id}/senha`, { novaSenha }),
+
+  bloquearUsuario: (id: number) =>
+    api.put(`/admin/usuarios/${id}/bloquear`),
+
+  excluirUsuario: (id: number) =>
+    api.delete(`/admin/usuarios/${id}`),
 };
 
 export default api;
