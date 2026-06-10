@@ -9,7 +9,8 @@ import type {
   UsuarioResponse,
 } from '../types';
 
-const api = axios.create({ baseURL: 'http://localhost:5000/api' });
+// const api = axios.create({ baseURL: 'http://localhost:5000/api' });
+const api = axios.create({ baseURL: 'http://10.140.0.234:5000/api' });
 
 api.interceptors.request.use((config) => {
   const raw = localStorage.getItem('auth');
@@ -23,7 +24,11 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) {
+    // Não redireciona quando o 401 vem do próprio login/registro:
+    // nesses casos a tela trata o erro (ex.: "aguardando aprovação").
+    const url: string = err.config?.url ?? '';
+    const isRotaAuth = url.includes('/auth/login') || url.includes('/auth/registro');
+    if (err.response?.status === 401 && !isRotaAuth) {
       localStorage.removeItem('auth');
       window.location.href = '/login';
     }

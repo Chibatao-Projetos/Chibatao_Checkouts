@@ -6,12 +6,24 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using SaidaPessoas.API.Data;
 
+// Compatibilidade de timestamp: trata DateTime como 'timestamp without time zone',
+// tolerando datas vindas do cliente (ex.: DataPrevistaRetorno) sem Kind=Utc.
+// Mantém o comportamento que o SQLite tinha. Revisitar para tz-aware no futuro.
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
 var builder = WebApplication.CreateBuilder(args);
+
+// Escuta em todas as interfaces de rede (localhost + IP da rede da empresa),
+// permitindo que este PC funcione como servidor para outros computadores.
+builder.WebHost.UseUrls("http://0.0.0.0:5000");
 
 builder.Services.AddControllers()
     .AddJsonOptions(opts =>
     {
         opts.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+        // Timestamps (instantes) serializados como UTC com 'Z' → cliente converte ao fuso local.
+        opts.JsonSerializerOptions.Converters.Add(new SaidaPessoas.API.Json.UtcDateTimeConverter());
+        opts.JsonSerializerOptions.Converters.Add(new SaidaPessoas.API.Json.NullableUtcDateTimeConverter());
         opts.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
         opts.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
     });
@@ -38,7 +50,7 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "SaidaPessoas_SuperSecretKey_MinLength32Chars!!";
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -60,7 +72,9 @@ builder.Services.AddAuthorization();
 
 builder.Services.AddCors(options =>
     options.AddPolicy("AllowFrontend", policy =>
-        policy.WithOrigins("http://localhost:3000")
+        // Rede interna: aceita qualquer origem (localhost e PCs da rede via IP/hostname).
+        // Seguro porque a auth é via Bearer token, não cookies.
+        policy.SetIsOriginAllowed(_ => true)
               .AllowAnyMethod()
               .AllowAnyHeader()));
 
@@ -80,7 +94,7 @@ app.MapControllers();
 using (var scope = app.Services.CreateScope())
 {
     var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    ctx.Database.EnsureCreated();
+    ctx.Database.Migrate();
     DbSeeder.Seed(ctx);
 }
 

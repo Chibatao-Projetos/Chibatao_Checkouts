@@ -146,7 +146,7 @@ const AdminPage: React.FC = () => {
   };
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-6 max-w-7xl mx-auto">
 
       {/* Tabs */}
       <div className="flex gap-1 mb-6 bg-gray-200 p-1 rounded-lg w-fit">
@@ -170,7 +170,7 @@ const AdminPage: React.FC = () => {
           {tab === 'pendentes' ? 'Nenhum cadastro pendente de aprovação.' : 'Nenhum usuário encontrado.'}
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200 text-sm">
             <thead className="bg-gray-50">
               <tr>
@@ -206,7 +206,7 @@ const AdminPage: React.FC = () => {
                     <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
                       {new Date(u.dataCadastro).toLocaleDateString('pt-BR')}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 min-w-[240px]">
                       <div className="flex gap-1.5 flex-wrap">
                         {/* Pendente */}
                         {u.status === 'Pendente' && (

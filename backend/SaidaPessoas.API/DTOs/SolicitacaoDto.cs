@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+using SaidaPessoas.API.Json;
 using SaidaPessoas.API.Models;
 
 namespace SaidaPessoas.API.DTOs;
@@ -10,7 +12,7 @@ public record CriarSolicitacaoDto(
     string? SetorDestino,
     TipoSaida TipoSaida,
     bool PrevisaoRetorno,
-    DateTime? DataPrevistaRetorno,
+    [property: JsonConverter(typeof(NaiveDateTimeConverter))] DateTime? DataPrevistaRetorno,
     string? HorarioPrevistodoRetorno,
     bool IsExtraordinaria
 );
@@ -28,7 +30,7 @@ public record SolicitacaoResponseDto(
     string? SetorDestino,
     string TipoSaida,
     bool PrevisaoRetorno,
-    DateTime? DataPrevistaRetorno,
+    [property: JsonConverter(typeof(NaiveDateTimeConverter))] DateTime? DataPrevistaRetorno,
     string? HorarioPrevistodoRetorno,
     bool IsExtraordinaria,
     DateTime DataSolicitacao,

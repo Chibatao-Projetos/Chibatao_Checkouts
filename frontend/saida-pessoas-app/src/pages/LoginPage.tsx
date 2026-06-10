@@ -41,6 +41,7 @@ const LoginPage: React.FC = () => {
   const navigate     = useNavigate();
   const [identificacao, setIdentificacao] = useState('');
   const [senha, setSenha]   = useState('');
+  const [showSenha, setShowSenha] = useState(false);
   const [error, setError]   = useState('');
   const [loading, setLoading] = useState(false);
   const [logoIdx, setLogoIdx]     = useState(0);
@@ -66,6 +67,9 @@ const LoginPage: React.FC = () => {
       );
     } finally { setLoading(false); }
   };
+
+  // Erros de status de conta (pendente/aprovação/desativada) viram modal com OK.
+  const isAprovacaoPendente = /aprova|pendente|desativ/i.test(error);
 
   return (
     <div className="container-fluid vh-100 p-0">
@@ -104,33 +108,78 @@ const LoginPage: React.FC = () => {
 
             <form onSubmit={handleSubmit}>
               <div className="mb-3">
-                <label className="form-label">Login</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  value={identificacao}
-                  onChange={e => setIdentificacao(e.target.value)}
-                  placeholder="Digite seu e-mail ou matrícula"
-                  autoComplete="username"
-                  required
-                  autoFocus
-                />
+                <label className="form-label fw-semibold text-uppercase" style={{ fontSize: '0.72rem', letterSpacing: '0.06em', color: '#6b7280' }}>
+                  E-mail ou Matrícula
+                </label>
+                <div className="position-relative">
+                  <span className="position-absolute top-50 translate-middle-y text-muted" style={{ left: 14, pointerEvents: 'none' }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="2" y="4" width="20" height="16" rx="2" />
+                      <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+                    </svg>
+                  </span>
+                  <input
+                    type="text"
+                    className="form-control"
+                    style={{ paddingLeft: 42, height: 48, borderRadius: 10 }}
+                    value={identificacao}
+                    onChange={e => setIdentificacao(e.target.value)}
+                    placeholder="ex: 123456 ou nome@empresa.com.br"
+                    autoComplete="username"
+                    required
+                    autoFocus
+                  />
+                </div>
               </div>
 
               <div className="mb-3">
-                <label className="form-label">Senha</label>
-                <input
-                  type="password"
-                  className="form-control"
-                  value={senha}
-                  onChange={e => setSenha(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                />
+                <label className="form-label fw-semibold text-uppercase" style={{ fontSize: '0.72rem', letterSpacing: '0.06em', color: '#6b7280' }}>
+                  Senha de acesso
+                </label>
+                <div className="position-relative">
+                  <span className="position-absolute top-50 translate-middle-y text-muted" style={{ left: 14, pointerEvents: 'none' }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="11" width="18" height="11" rx="2" />
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                    </svg>
+                  </span>
+                  <input
+                    type={showSenha ? 'text' : 'password'}
+                    className="form-control"
+                    style={{ paddingLeft: 42, paddingRight: 44, height: 48, borderRadius: 10 }}
+                    value={senha}
+                    onChange={e => setSenha(e.target.value)}
+                    placeholder="••••••••"
+                    autoComplete="current-password"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowSenha(s => !s)}
+                    className="position-absolute top-50 translate-middle-y p-0 border-0 bg-transparent text-muted"
+                    style={{ right: 14, lineHeight: 0 }}
+                    tabIndex={-1}
+                    aria-label={showSenha ? 'Ocultar senha' : 'Mostrar senha'}
+                  >
+                    {showSenha ? (
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
+                        <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
+                        <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
+                        <line x1="2" x2="22" y1="2" y2="22" />
+                      </svg>
+                    ) : (
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
               </div>
 
-              {error && (
-                <div className="alert alert-danger py-2 small">{error}</div>
+              {error && !isAprovacaoPendente && (
+                <div className="alert alert-danger py-2 small mb-3">{error}</div>
               )}
 
               <button
@@ -149,23 +198,38 @@ const LoginPage: React.FC = () => {
                 Criar conta
               </Link>
             </p>
-
-            <details className="mt-4">
-              <summary className="small text-muted" style={{ cursor: 'pointer' }}>
-                Credenciais de demonstração
-              </summary>
-              <div className="bg-light rounded p-3 mt-2 small text-muted">
-                <div><strong>Admin:</strong> admin@empresa.com / admin123</div>
-                <div><strong>Solicitante:</strong> solicitante@empresa.com / 123456</div>
-                <div><strong>Gestor:</strong> gestor@empresa.com / 123456</div>
-                <div><strong>RH:</strong> rh@empresa.com / 123456</div>
-                <div><strong>Portaria:</strong> portaria@empresa.com / 123456</div>
-              </div>
-            </details>
           </div>
         </div>
 
       </div>
+
+      {/* Modal: conta aguardando aprovação (fica até o usuário clicar em OK) */}
+      {error && isAprovacaoPendente && (
+        <div
+          className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center px-3"
+          style={{ background: 'rgba(0,0,0,0.5)', zIndex: 1080 }}
+          onClick={() => setError('')}
+        >
+          <div
+            className="bg-white rounded-4 shadow-lg p-4 text-center"
+            style={{ maxWidth: 380, width: '100%' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ fontSize: '2.75rem', lineHeight: 1 }}>⏳</div>
+            <h5 className="fw-bold mt-3 mb-2" style={{ color: BG }}>Aguardando aprovação</h5>
+            <p className="text-muted small mb-4">{error}</p>
+            <button
+              type="button"
+              className="btn w-100 py-2 text-white fw-semibold"
+              style={{ backgroundColor: BG, borderColor: BG }}
+              onClick={() => setError('')}
+              autoFocus
+            >
+              OK, entendi
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

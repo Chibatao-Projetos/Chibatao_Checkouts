@@ -57,8 +57,18 @@ const SignUpPage: React.FC = () => {
       <div className="min-h-screen flex items-center justify-center p-4" style={{ backgroundColor: 'rgb(15, 68, 106)' }}>
         <div className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-md text-center">
           <div className="text-5xl mb-4">✅</div>
-          <h2 className="text-xl font-bold text-gray-800 mb-2">Cadastro Realizado!</h2>
-          <p className="text-gray-500 text-sm mb-6">{success}</p>
+          <h2 className="text-xl font-bold text-gray-800 mb-3">Cadastro Realizado!</h2>
+
+          <div className="flex items-start gap-3 text-left bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3 mb-6">
+            <span className="text-2xl leading-none">⏳</span>
+            <div>
+              <p className="font-semibold text-yellow-800 text-sm mb-0.5">Aguarde a aprovação do acesso</p>
+              <p className="text-yellow-700 text-xs">
+                Seu cadastro foi enviado e precisa ser aprovado por um administrador antes que você possa entrar no sistema.
+              </p>
+            </div>
+          </div>
+
           <button
             onClick={() => navigate('/login')}
             className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
