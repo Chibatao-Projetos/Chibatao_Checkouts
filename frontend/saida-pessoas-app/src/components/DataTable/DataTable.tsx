@@ -7,39 +7,27 @@ import {
   type ColumnDef,
   type SortingState,
 } from '@tanstack/react-table';
-import type { SolicitacaoResponse, PerfilUsuario, StatusSolicitacao } from '../../types';
+import { Modal } from 'react-bootstrap';
+import type { SolicitacaoResponse, PerfilUsuario } from '../../types';
 import { solicitacaoService } from '../../services/api';
 import ReprovacaoModal from '../ReprovacaoModal';
 import DetalhesSolicitacaoModal from '../DetalhesSolicitacaoModal';
+import StatusBadge from '../ui/StatusBadge';
+import ExportButton from './ExportButton';
 
-/* ── Status labels + Bootstrap badge classes ─────────────────── */
-const STATUS_LABELS: Record<StatusSolicitacao, string> = {
-  AguardandoGestor: 'Ag. Gestor',
-  AguardandoRH:     'Ag. RH',
-  LiberadoPortaria: 'Lib. Portaria',
-  EmTransito:       'Em Trânsito',
-  Concluido:        'Concluído',
-  Reprovado:        'Reprovado',
-};
-
-const statusBadge = (status: StatusSolicitacao) => {
-  const map: Record<StatusSolicitacao, { cls: string; style?: React.CSSProperties }> = {
-    AguardandoGestor: { cls: 'badge text-bg-warning' },
-    AguardandoRH:     { cls: 'badge text-bg-primary' },
-    LiberadoPortaria: { cls: 'badge text-bg-success' },
-    EmTransito:       { cls: 'badge', style: { backgroundColor: '#fd7e14', color: '#fff' } },
-    Concluido:        { cls: 'badge text-bg-secondary' },
-    Reprovado:        { cls: 'badge text-bg-danger' },
-  };
-  return map[status];
-};
-
-/* ── Eye icon ────────────────────────────────────────────────── */
+/* ── Ícones de ação ──────────────────────────────────────────── */
 const EyeIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75}
-    strokeLinecap="round" strokeLinejoin="round" width={15} height={15}>
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
     <circle cx="12" cy="12" r="3" />
+  </svg>
+);
+const TrashIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+    <path d="M10 11v6M14 11v6" />
   </svg>
 );
 
@@ -55,18 +43,28 @@ interface DataTableProps {
   onAction: () => void;
   nomeVigilante?: string;
   isHistorico?: boolean;
+  permiteExcluir?: boolean;
+  title?: string;
 }
+
+const podeExcluir = (s: SolicitacaoResponse): boolean =>
+  (s.status === 'AguardandoGestor' || s.status === 'AguardandoRH') &&
+  !s.dataAprovacaoGestor && !s.dataAprovacaoRH;
 
 const DataTable: React.FC<DataTableProps> = ({
   data, total, page, pageSize,
   onPageChange, onSortChange,
   perfil, onAction, nomeVigilante,
   isHistorico = false,
+  permiteExcluir = false,
+  title = 'Registros',
 }) => {
   const [sorting, setSorting]           = useState<SortingState>([]);
   const [loadingId, setLoadingId]       = useState<number | null>(null);
   const [reprovacaoModal, setReprovacaoModal] = useState<{ id: number; tipo: 'gestor' | 'rh' } | null>(null);
   const [detalhes, setDetalhes]         = useState<SolicitacaoResponse | null>(null);
+  const [excluirAlvo, setExcluirAlvo]   = useState<SolicitacaoResponse | null>(null);
+  const [excluindo, setExcluindo]       = useState(false);
 
   const handleAction = async (action: () => Promise<unknown>, id: number) => {
     setLoadingId(id);
@@ -78,6 +76,18 @@ const DataTable: React.FC<DataTableProps> = ({
     } finally { setLoadingId(null); }
   };
 
+  const handleExcluir = async () => {
+    if (!excluirAlvo) return;
+    setExcluindo(true);
+    try {
+      await solicitacaoService.excluir(excluirAlvo.id);
+      setExcluirAlvo(null);
+      onAction();
+    } catch (err: unknown) {
+      alert((err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Erro ao excluir.');
+    } finally { setExcluindo(false); }
+  };
+
   const portariaColumns: ColumnDef<SolicitacaoResponse>[] = [
     { accessorKey: 'nomeVigilante', header: 'Vigilante',    cell: ({ getValue }) => getValue<string | undefined>() ?? '—' },
     { accessorKey: 'horaSaida',     header: 'Hora Saída',   cell: ({ getValue }) => { const v = getValue<string | undefined>(); return v ? new Date(v).toLocaleString('pt-BR') : '—'; } },
@@ -85,14 +95,15 @@ const DataTable: React.FC<DataTableProps> = ({
   ];
 
   const columns = useMemo<ColumnDef<SolicitacaoResponse>[]>(() => [
-    /* ── Detalhes (ícone olho) ── */
+    /* ── Detalhes ── */
     {
-      id: 'detalhes', header: '', size: 44,
+      id: 'detalhes', header: '', size: 48,
       cell: ({ row }) => (
         <button
-          className="btn btn-sm btn-outline-secondary p-1 lh-1"
+          className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-1 lh-1"
           onClick={() => setDetalhes(row.original)}
           title="Ver detalhes"
+          aria-label="Ver detalhes"
         >
           <EyeIcon />
         </button>
@@ -127,19 +138,26 @@ const DataTable: React.FC<DataTableProps> = ({
       accessorKey: 'previsaoRetorno',
       header: 'Retorno?',
       cell: ({ row }) => {
-        const { previsaoRetorno, dataPrevistaRetorno, horarioPrevistodoRetorno } = row.original;
+        const { previsaoRetorno, dataPrevistaRetorno } = row.original;
         if (!previsaoRetorno) return <span className="text-muted">Não</span>;
         return (
           <span>
             Sim
             {dataPrevistaRetorno && (
               <small className="d-block text-muted">
-                {new Date(dataPrevistaRetorno).toLocaleDateString('pt-BR')}
-                {horarioPrevistodoRetorno && ` ${horarioPrevistodoRetorno}`}
+                {new Date(dataPrevistaRetorno).toLocaleString('pt-BR')}
               </small>
             )}
           </span>
         );
+      },
+    },
+    {
+      accessorKey: 'dataSaida',
+      header: 'Data/Hora Saída',
+      cell: ({ getValue }) => {
+        const v = getValue<string | undefined>();
+        return v ? new Date(v).toLocaleString('pt-BR') : '—';
       },
     },
     {
@@ -152,10 +170,9 @@ const DataTable: React.FC<DataTableProps> = ({
       header: 'Status',
       cell: ({ row }) => {
         const { status, motivoReprovacao } = row.original;
-        const b = statusBadge(status);
         return (
           <div>
-            <span className={b.cls} style={b.style}>{STATUS_LABELS[status]}</span>
+            <StatusBadge status={status} />
             {status === 'Reprovado' && motivoReprovacao && (
               <small
                 className="d-block text-danger mt-1 text-truncate"
@@ -220,11 +237,20 @@ const DataTable: React.FC<DataTableProps> = ({
                 disabled={busy}
               >{busy ? '…' : 'Reg. Retorno'}</button>
             )}
+            {permiteExcluir && podeExcluir(s) && (
+              <button
+                className="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center p-1 lh-1"
+                onClick={() => setExcluirAlvo(s)}
+                disabled={busy}
+                title="Excluir"
+                aria-label="Excluir solicitação"
+              ><TrashIcon /></button>
+            )}
           </div>
         );
       },
     },
-  ], [perfil, loadingId, nomeVigilante, isHistorico]);
+  ], [perfil, loadingId, nomeVigilante, isHistorico, permiteExcluir]);
 
   const table = useReactTable({
     data, columns,
@@ -245,23 +271,36 @@ const DataTable: React.FC<DataTableProps> = ({
 
   return (
     <>
-      <div className="card border-0 shadow-sm">
+      <div className="card border-0 shadow-sm rounded-3">
+        <div className="card-header bg-white border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2 py-3 rounded-top-3">
+          <h6 className="text-uppercase fw-semibold text-secondary mb-0" style={{ letterSpacing: '0.05em' }}>
+            {title}
+          </h6>
+          <ExportButton data={data} />
+        </div>
         <div className="table-responsive">
-          <table className="table table-hover align-middle mb-0">
+          <table className="table table-hover table-striped align-middle mb-0">
             <thead className="table-light">
               {table.getHeaderGroups().map(hg => (
                 <tr key={hg.id}>
-                  {hg.headers.map(header => (
-                    <th
-                      key={header.id}
-                      onClick={header.column.getToggleSortingHandler()}
-                      style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                    >
-                      {flexRender(header.column.columnDef.header, header.getContext())}
-                      {header.column.getIsSorted() === 'asc' ? ' ↑'
-                        : header.column.getIsSorted() === 'desc' ? ' ↓' : ''}
-                    </th>
-                  ))}
+                  {hg.headers.map(header => {
+                    const sorted = header.column.getIsSorted();
+                    return (
+                      <th
+                        key={header.id}
+                        onClick={header.column.getToggleSortingHandler()}
+                        className="text-uppercase text-secondary fw-semibold"
+                        style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap', fontSize: '0.72rem', letterSpacing: '0.04em' }}
+                      >
+                        {flexRender(header.column.columnDef.header, header.getContext())}
+                        {header.column.getCanSort() && (
+                          <span className="text-muted ms-1" style={{ opacity: sorted ? 1 : 0.35 }}>
+                            {sorted === 'asc' ? '↑' : sorted === 'desc' ? '↓' : '↕'}
+                          </span>
+                        )}
+                      </th>
+                    );
+                  })}
                 </tr>
               ))}
             </thead>
@@ -323,6 +362,30 @@ const DataTable: React.FC<DataTableProps> = ({
         }}
       />
       <DetalhesSolicitacaoModal solicitacao={detalhes} onClose={() => setDetalhes(null)} />
+
+      {/* Confirmação de exclusão (somente pendentes) */}
+      <Modal show={!!excluirAlvo} onHide={excluindo ? undefined : () => setExcluirAlvo(null)} centered>
+        <Modal.Header closeButton={!excluindo}>
+          <Modal.Title className="fs-5">Excluir solicitação</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <p className="mb-1">Tem certeza que deseja excluir esta solicitação?</p>
+          {excluirAlvo && (
+            <p className="text-muted small mb-0">
+              #{excluirAlvo.id} — {excluirAlvo.nome} · {excluirAlvo.destino || 'Saída'}
+            </p>
+          )}
+          <p className="text-danger small mt-2 mb-0">Esta ação não pode ser desfeita.</p>
+        </Modal.Body>
+        <Modal.Footer>
+          <button className="btn btn-outline-secondary" onClick={() => setExcluirAlvo(null)} disabled={excluindo}>
+            Cancelar
+          </button>
+          <button className="btn btn-danger" onClick={handleExcluir} disabled={excluindo}>
+            {excluindo ? 'Excluindo…' : 'Excluir'}
+          </button>
+        </Modal.Footer>
+      </Modal>
     </>
   );
 };

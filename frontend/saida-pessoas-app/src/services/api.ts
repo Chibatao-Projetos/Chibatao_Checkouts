@@ -3,14 +3,18 @@ import type {
   AuthUser,
   CriarSolicitacaoDto,
   DashboardStats,
+  Notificacao,
   PagedResult,
   RegistroDto,
   SolicitacaoResponse,
   UsuarioResponse,
 } from '../types';
 
-// const api = axios.create({ baseURL: 'http://localhost:5000/api' });
-const api = axios.create({ baseURL: 'http://10.140.0.234:5000/api' });
+// O host da API acompanha o host que o navegador usou para abrir o frontend
+// (localhost, 10.140.0.x, etc.), evitando IP fixo que quebra quando o DHCP muda.
+// O backend roda sempre na porta 5000 da mesma máquina.
+const apiHost = window.location.hostname || 'localhost';
+const api = axios.create({ baseURL: `http://${apiHost}:5000/api` });
 
 api.interceptors.request.use((config) => {
   const raw = localStorage.getItem('auth');
@@ -71,6 +75,9 @@ export const solicitacaoService = {
   criar: (dto: CriarSolicitacaoDto) =>
     api.post<SolicitacaoResponse>('/solicitacoes', dto),
 
+  excluir: (id: number) =>
+    api.delete<{ message: string }>(`/solicitacoes/${id}`),
+
   aprovarGestor: (id: number) =>
     api.put(`/solicitacoes/${id}/aprovar-gestor`),
 
@@ -92,6 +99,17 @@ export const solicitacaoService = {
 
 export const dashboardService = {
   getStats: () => api.get<DashboardStats>('/dashboard/stats'),
+};
+
+export const notificacaoService = {
+  listar: (limit = 20) =>
+    api.get<Notificacao[]>('/notificacoes', { params: { limit } }),
+  contarNaoLidas: () =>
+    api.get<{ count: number }>('/notificacoes/nao-lidas'),
+  marcarLida: (id: number) =>
+    api.put(`/notificacoes/${id}/lida`),
+  marcarTodasLidas: () =>
+    api.put('/notificacoes/marcar-todas-lidas'),
 };
 
 export const usuariosService = {

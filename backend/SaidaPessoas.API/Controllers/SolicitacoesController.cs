@@ -15,8 +15,13 @@ namespace SaidaPessoas.API.Controllers;
 public class SolicitacoesController : ControllerBase
 {
     private readonly AppDbContext _context;
+    private readonly SaidaPessoas.API.Services.NotificacaoService _notificacao;
 
-    public SolicitacoesController(AppDbContext context) => _context = context;
+    public SolicitacoesController(AppDbContext context, SaidaPessoas.API.Services.NotificacaoService notificacao)
+    {
+        _context = context;
+        _notificacao = notificacao;
+    }
 
     private int GetUserId() => int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
     private string GetUserRole() => User.FindFirst(ClaimTypes.Role)!.Value;
@@ -45,6 +50,8 @@ public class SolicitacoesController : ControllerBase
 
         var query = _context.Solicitacoes
             .Include(s => s.Solicitante)
+            .Include(s => s.GestorAprovador)
+            .Include(s => s.RHAprovador)
             .AsQueryable();
 
         // minhas=true → mostra apenas as próprias solicitações, independente do perfil
@@ -57,7 +64,7 @@ public class SolicitacoesController : ControllerBase
         query = role switch
         {
             "Solicitante" => query.Where(s => s.SolicitanteId == userId),
-            "Gestor" => query.Where(s => s.Setor == userSetor),
+            "Gestor" => query.Where(s => s.Setor.ToUpper() == userSetor.ToUpper()),
             "Portaria" => incluirHistorico
                 ? query.Where(s => s.Status == StatusSolicitacao.Concluido)
                 : query.Where(s =>
@@ -122,6 +129,8 @@ public class SolicitacoesController : ControllerBase
     {
         var s = await _context.Solicitacoes
             .Include(x => x.Solicitante)
+            .Include(x => x.GestorAprovador)
+            .Include(x => x.RHAprovador)
             .FirstOrDefaultAsync(x => x.Id == id);
 
         if (s == null) return NotFound();
@@ -150,6 +159,7 @@ public class SolicitacoesController : ControllerBase
             DataPrevistaRetorno = dto.DataPrevistaRetorno,
             HorarioPrevistodoRetorno = dto.HorarioPrevistodoRetorno,
             IsExtraordinaria = dto.IsExtraordinaria,
+            DataSaida = dto.DataSaida,
             DataSolicitacao = DateTime.UtcNow,
             Status = initialStatus,
             SolicitanteId = GetUserId()
@@ -158,11 +168,38 @@ public class SolicitacoesController : ControllerBase
         _context.Solicitacoes.Add(solicitacao);
         await _context.SaveChangesAsync();
 
+        await _notificacao.NotificarNovaSolicitacao(solicitacao);
+
         var created = await _context.Solicitacoes
             .Include(s => s.Solicitante)
             .FirstAsync(s => s.Id == solicitacao.Id);
 
         return CreatedAtAction(nameof(ObterPorId), new { id = solicitacao.Id }, MapToDto(created));
+    }
+
+    // Solicitante (dono) ou Admin pode excluir, somente enquanto pendente e sem nenhuma aprovação.
+    [HttpDelete("{id}")]
+    [Authorize(Roles = "Solicitante,Gestor,Admin")]
+    public async Task<IActionResult> ExcluirSolicitacao(int id)
+    {
+        var s = await _context.Solicitacoes.FindAsync(id);
+        if (s == null) return NotFound();
+
+        var role = GetUserRole();
+        if (role != "Admin" && s.SolicitanteId != GetUserId())
+            return Forbid();
+
+        var pendenteSemAprovacao =
+            (s.Status == StatusSolicitacao.AguardandoGestor || s.Status == StatusSolicitacao.AguardandoRH)
+            && s.GestorAprovadorId == null
+            && s.RHAprovadorId == null;
+
+        if (!pendenteSemAprovacao)
+            return BadRequest(new { message = "Só é possível excluir solicitações que ainda não foram aprovadas." });
+
+        _context.Solicitacoes.Remove(s);
+        await _context.SaveChangesAsync();
+        return Ok(new { message = "Solicitação excluída com sucesso." });
     }
 
     [HttpPut("{id}/aprovar-gestor")]
@@ -179,6 +216,7 @@ public class SolicitacoesController : ControllerBase
         s.DataAprovacaoGestor = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
+        await _notificacao.NotificarAprovacaoGestor(s);
         return Ok(new { message = "Aprovado pelo Gestor." });
     }
 
@@ -200,6 +238,7 @@ public class SolicitacoesController : ControllerBase
         s.DataAprovacaoGestor = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
+        await _notificacao.NotificarReprovacao(s, "gestor", dto.Motivo);
         return Ok(new { message = "Solicitação reprovada pelo Gestor." });
     }
 
@@ -217,6 +256,7 @@ public class SolicitacoesController : ControllerBase
         s.DataAprovacaoRH = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
+        await _notificacao.NotificarAprovacaoRH(s);
         return Ok(new { message = "Aprovado pelo RH." });
     }
 
@@ -238,6 +278,7 @@ public class SolicitacoesController : ControllerBase
         s.DataAprovacaoRH = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
+        await _notificacao.NotificarReprovacao(s, "RH", dto.Motivo);
         return Ok(new { message = "Solicitação reprovada pelo RH." });
     }
 
@@ -284,7 +325,11 @@ public class SolicitacoesController : ControllerBase
         [FromQuery] DateTime? dataInicio = null,
         [FromQuery] DateTime? dataFim = null)
     {
-        var query = _context.Solicitacoes.Include(s => s.Solicitante).AsQueryable();
+        var query = _context.Solicitacoes
+            .Include(s => s.Solicitante)
+            .Include(s => s.GestorAprovador)
+            .Include(s => s.RHAprovador)
+            .AsQueryable();
 
         if (!string.IsNullOrEmpty(status) && Enum.TryParse<StatusSolicitacao>(status, out var statusEnum))
             query = query.Where(s => s.Status == statusEnum);
@@ -329,6 +374,7 @@ public class SolicitacoesController : ControllerBase
         s.DataPrevistaRetorno,
         s.HorarioPrevistodoRetorno,
         s.IsExtraordinaria,
+        s.DataSaida,
         s.DataSolicitacao,
         s.Status.ToString(),
         s.MotivoReprovacao,
@@ -337,6 +383,8 @@ public class SolicitacoesController : ControllerBase
         s.HoraRetorno,
         s.Solicitante?.Nome ?? string.Empty,
         s.DataAprovacaoGestor,
-        s.DataAprovacaoRH
+        s.GestorAprovador?.Nome,
+        s.DataAprovacaoRH,
+        s.RHAprovador?.Nome
     );
 }

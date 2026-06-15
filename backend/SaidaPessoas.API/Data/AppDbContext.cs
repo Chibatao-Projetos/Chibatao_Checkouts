@@ -9,6 +9,7 @@ public class AppDbContext : DbContext
 
     public DbSet<SolicitacaoSaida> Solicitacoes { get; set; }
     public DbSet<Usuario> Usuarios { get; set; }
+    public DbSet<Notificacao> Notificacoes { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -16,6 +17,19 @@ public class AppDbContext : DbContext
             .HasOne(s => s.Solicitante)
             .WithMany(u => u.Solicitacoes)
             .HasForeignKey(s => s.SolicitanteId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Aprovadores (opcionais, sem coleção inversa)
+        modelBuilder.Entity<SolicitacaoSaida>()
+            .HasOne(s => s.GestorAprovador)
+            .WithMany()
+            .HasForeignKey(s => s.GestorAprovadorId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<SolicitacaoSaida>()
+            .HasOne(s => s.RHAprovador)
+            .WithMany()
+            .HasForeignKey(s => s.RHAprovadorId)
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<SolicitacaoSaida>()
@@ -41,5 +55,18 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Usuario>()
             .HasIndex(u => u.Matricula)
             .IsUnique();
+
+        modelBuilder.Entity<Notificacao>()
+            .Property(n => n.Tipo)
+            .HasConversion<string>();
+
+        modelBuilder.Entity<Notificacao>()
+            .HasOne(n => n.Usuario)
+            .WithMany()
+            .HasForeignKey(n => n.UsuarioId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<Notificacao>()
+            .HasIndex(n => new { n.UsuarioId, n.Lida });
     }
 }

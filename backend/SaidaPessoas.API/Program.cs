@@ -52,6 +52,8 @@ builder.Services.AddSwaggerGen(c =>
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+builder.Services.AddScoped<SaidaPessoas.API.Services.NotificacaoService>();
+
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "SaidaPessoas_SuperSecretKey_MinLength32Chars!!";
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>

@@ -6,7 +6,6 @@ import type { ListParams } from '../services/api';
 import type { PerfilUsuario, SolicitacaoResponse } from '../types';
 import DataTable from '../components/DataTable/DataTable';
 import FilterPanel from '../components/DataTable/FilterPanel';
-import ExportButton from '../components/DataTable/ExportButton';
 import NovaSolicitacaoModal from '../components/NovaSolicitacaoModal';
 
 const EMPTY = { nome: '', status: '', setor: '', tipoSaida: '', destino: '', dataInicio: '', dataFim: '' };
@@ -23,6 +22,7 @@ const SolicitacoesPessoasPage: React.FC = () => {
   const [page, setPage]     = useState(1);
   const [sortBy, setSortBy] = useState('dataSolicitacao');
   const [sortDesc, setSortDesc] = useState(true);
+  const [draftFilters, setDraftFilters] = useState(EMPTY);
   const [filters, setFilters] = useState(EMPTY);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -57,24 +57,23 @@ const SolicitacoesPessoasPage: React.FC = () => {
 
   return (
     <div className="p-6 space-y-4">
-      <div className="flex items-center justify-end">
-        <div className="flex items-center gap-3">
-          <ExportButton data={data} />
-          {canCreate && (
-            <button
-              onClick={() => setShowModal(true)}
-              className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors font-medium"
-            >
-              + Nova Solicitação
-            </button>
-          )}
+      {canCreate && (
+        <div className="flex items-center justify-end">
+          <button
+            onClick={() => setShowModal(true)}
+            className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors font-medium"
+          >
+            + Nova Solicitação
+          </button>
         </div>
-      </div>
+      )}
 
       <FilterPanel
-        filters={filters}
-        onChange={(k, v) => { setFilters((p) => ({ ...p, [k]: v })); setPage(1); }}
-        onClear={() => { setFilters(EMPTY); setPage(1); }}
+        filters={draftFilters}
+        onChange={(k, v) => setDraftFilters((p) => ({ ...p, [k]: v }))}
+        onApply={() => { setFilters(draftFilters); setPage(1); }}
+        onClear={() => { setDraftFilters(EMPTY); setFilters(EMPTY); setPage(1); }}
+        loading={loading}
         showNome
         showDestino
       />
@@ -87,6 +86,8 @@ const SolicitacoesPessoasPage: React.FC = () => {
           onPageChange={setPage}
           onSortChange={(sb, sd) => { setSortBy(sb); setSortDesc(sd); setPage(1); }}
           perfil={perfil} onAction={fetchData}
+          permiteExcluir
+          title="Minhas Solicitações"
         />
       )}
 

@@ -16,6 +16,9 @@ public class SolicitacaoSaida
     public string? HorarioPrevistodoRetorno { get; set; }
     public bool IsExtraordinaria { get; set; }
 
+    // Data planejada da saída (escolhida pelo solicitante: hoje ou outro dia)
+    public DateTime DataSaida { get; set; } = DateTime.UtcNow;
+
     // --- Automáticos / Controle de Sistema ---
     public DateTime DataSolicitacao { get; set; } = DateTime.UtcNow;
     public StatusSolicitacao Status { get; set; } = StatusSolicitacao.AguardandoGestor;
@@ -31,8 +34,10 @@ public class SolicitacaoSaida
     public Usuario Solicitante { get; set; } = null!;
 
     public int? GestorAprovadorId { get; set; }
+    public Usuario? GestorAprovador { get; set; }
     public DateTime? DataAprovacaoGestor { get; set; }
 
     public int? RHAprovadorId { get; set; }
+    public Usuario? RHAprovador { get; set; }
     public DateTime? DataAprovacaoRH { get; set; }
 }

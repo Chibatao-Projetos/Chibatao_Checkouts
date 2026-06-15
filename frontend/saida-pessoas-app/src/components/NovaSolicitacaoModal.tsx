@@ -31,20 +31,35 @@ const UNIDADES_SETORES: Record<string, string[]> = {
   ],
 };
 
-const SectionHeader: React.FC<{ icon: string; title: string; withDivider?: boolean }> = ({
-  icon, title, withDivider,
-}) => (
-  <>
-    {withDivider && <hr className="my-4" />}
-    <p
-      className="text-uppercase text-muted small fw-semibold mb-3 d-flex align-items-center gap-2"
-      style={{ letterSpacing: '0.05em' }}
-    >
-      <i className={`bi ${icon} fs-6`} />
-      {title}
-    </p>
-  </>
+const BG = 'rgb(15, 68, 106)';
+
+/* Data e hora atuais no formato aceito por <input type="datetime-local"> (YYYY-MM-DDTHH:mm) */
+const agoraLocal = () => {
+  const d = new Date();
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 16);
+};
+
+/* ── Bloco numerado (cartão) ── */
+const Bloco: React.FC<{ num: number; title: string; children: React.ReactNode }> = ({ num, title, children }) => (
+  <div className="card border shadow-sm mb-3">
+    <div className="card-body p-3 p-md-4">
+      <div className="d-flex align-items-center gap-2 mb-3">
+        <span
+          className="d-inline-flex align-items-center justify-content-center rounded-circle text-white fw-bold"
+          style={{ width: 26, height: 26, fontSize: '0.8rem', backgroundColor: BG, flexShrink: 0 }}
+        >
+          {num}
+        </span>
+        <span className="fw-semibold">{title}</span>
+      </div>
+      {children}
+    </div>
+  </div>
 );
+
+const LBL = 'form-label text-uppercase small fw-semibold text-muted';
+const lblStyle: React.CSSProperties = { fontSize: '0.72rem', letterSpacing: '0.05em' };
 
 interface Props {
   show: boolean;
@@ -60,9 +75,9 @@ const buildInitialState = (nome: string, setor: string) => ({
   unidadeDestino: '',
   setorDestino: '',
   motivo: '',
+  dataSaida: agoraLocal(),
   previsaoRetorno: true,
   dataPrevistaRetorno: '',
-  horarioPrevistodoRetorno: '',
   isExtraordinaria: false,
 });
 
@@ -96,20 +111,19 @@ const NovaSolicitacaoModal: React.FC<Props> = ({ show, onClose, onCreated }) => 
     e.preventDefault();
     setError('');
 
+    if (!form.dataSaida) {
+      setError('Informe a data e hora da saída.');
+      return;
+    }
+    if (form.previsaoRetorno && !isParticular && !form.dataPrevistaRetorno) {
+      setError('Informe a data e hora prevista de retorno.');
+      return;
+    }
+
     if (!isParticular) {
       if (!form.unidadeDestino) { setError('Selecione a unidade de destino.'); return; }
       if (!form.setorDestino)   { setError('Selecione o setor de destino.');   return; }
       if (!form.motivo.trim())  { setError('Informe o motivo da saída.');       return; }
-    }
-    // Para saída a serviço, data e horário previstos são obrigatórios quando há retorno.
-    // Para saída particular, ambos são opcionais.
-    if (!isParticular && form.previsaoRetorno && !form.dataPrevistaRetorno) {
-      setError('Informe a data prevista de retorno.');
-      return;
-    }
-    if (!isParticular && form.previsaoRetorno && !form.horarioPrevistodoRetorno) {
-      setError('Informe o horário previsto de retorno.');
-      return;
     }
 
     const destinoServico = `${form.unidadeDestino} — ${form.setorDestino} — Motivo: ${form.motivo.trim()}`;
@@ -125,8 +139,9 @@ const NovaSolicitacaoModal: React.FC<Props> = ({ show, onClose, onCreated }) => 
         tipoSaida: form.tipoSaida,
         previsaoRetorno: form.previsaoRetorno,
         dataPrevistaRetorno: form.previsaoRetorno ? form.dataPrevistaRetorno : undefined,
-        horarioPrevistodoRetorno: form.previsaoRetorno ? form.horarioPrevistodoRetorno : undefined,
+        horarioPrevistodoRetorno: undefined,
         isExtraordinaria: form.isExtraordinaria,
+        dataSaida: form.dataSaida,
       });
       onCreated();
       onClose();
@@ -155,193 +170,185 @@ const NovaSolicitacaoModal: React.FC<Props> = ({ show, onClose, onCreated }) => 
         <Modal.Title className="fs-5 fw-semibold">Nova Solicitação de Saída</Modal.Title>
       </Modal.Header>
 
-      <Modal.Body>
+      <Modal.Body style={{ backgroundColor: '#f7f9fc' }}>
+        <p className="small text-muted mb-3">
+          Campos marcados com <span className="text-danger">*</span> são obrigatórios
+        </p>
+
         <form id={FORM_ID} onSubmit={handleSubmit}>
-          {/* ─── Informações da Saída ─── */}
-          <SectionHeader icon="bi-box-arrow-up-right" title="Informações da Saída" />
-
-          <div className="row g-3 mb-3">
-            <div className="col-md-6">
-              <label className="form-label">Nome completo *</label>
-              <input
-                type="text"
-                className="form-control"
-                value={form.nome}
-                onChange={(e) => set('nome', e.target.value)}
-                required
-              />
-            </div>
-            <div className="col-md-6">
-              <label className="form-label">Setor *</label>
-              <input
-                type="text"
-                className="form-control"
-                value={form.setor}
-                onChange={(e) => set('setor', e.target.value)}
-                required
-              />
-            </div>
-          </div>
-
-          <div className="mb-3">
-            <label className="form-label">Tipo de Saída *</label>
-            <div className="btn-group w-100" role="group">
-              <input
-                type="radio" className="btn-check" name="tipoSaida" id="tipo-particular"
-                checked={isParticular} onChange={() => set('tipoSaida', 'Particular')}
-              />
-              <label className="btn btn-outline-primary" htmlFor="tipo-particular">Particular</label>
-
-              <input
-                type="radio" className="btn-check" name="tipoSaida" id="tipo-aservico"
-                checked={!isParticular} onChange={() => set('tipoSaida', 'AServico')}
-              />
-              <label className="btn btn-outline-primary" htmlFor="tipo-aservico">À Serviço</label>
-            </div>
-          </div>
-
-          <div className="mb-3">
-            <label className="form-label">Previsão de Retorno</label>
-            <div className="btn-group w-100" role="group">
-              <input
-                type="radio" className="btn-check" name="retorno" id="retorno-sim"
-                checked={form.previsaoRetorno} onChange={() => set('previsaoRetorno', true)}
-              />
-              <label className="btn btn-outline-primary" htmlFor="retorno-sim">Sim</label>
-
-              <input
-                type="radio" className="btn-check" name="retorno" id="retorno-nao"
-                checked={!form.previsaoRetorno} onChange={() => set('previsaoRetorno', false)}
-              />
-              <label className="btn btn-outline-primary" htmlFor="retorno-nao">Não</label>
-            </div>
-          </div>
-
-          {form.previsaoRetorno && (
+          {/* ── Bloco 1: Informações principais ── */}
+          <Bloco num={1} title="Informações principais">
             <div className="row g-3 mb-3">
               <div className="col-md-6">
-                <label className="form-label">
-                  Data prevista{!isParticular && ' *'}
-                  {isParticular && <span className="text-muted fw-normal"> (opcional)</span>}
+                <label className={LBL} style={lblStyle}>Nome completo <span className="text-danger">*</span></label>
+                <input
+                  type="text" className="form-control"
+                  value={form.nome} onChange={(e) => set('nome', e.target.value)} required
+                />
+              </div>
+              <div className="col-md-6">
+                <label className={LBL} style={lblStyle}>Setor <span className="text-danger">*</span></label>
+                <input
+                  type="text" className="form-control"
+                  value={form.setor} onChange={(e) => set('setor', e.target.value)} required
+                />
+              </div>
+            </div>
+
+            <div className="mb-3">
+              <label className={LBL} style={lblStyle}>Tipo de Saída <span className="text-danger">*</span></label>
+              <div className="btn-group w-100" role="group">
+                <input
+                  type="radio" className="btn-check" name="tipoSaida" id="tipo-particular"
+                  checked={isParticular} onChange={() => set('tipoSaida', 'Particular')}
+                />
+                <label className="btn btn-outline-primary" htmlFor="tipo-particular">Particular</label>
+
+                <input
+                  type="radio" className="btn-check" name="tipoSaida" id="tipo-aservico"
+                  checked={!isParticular} onChange={() => set('tipoSaida', 'AServico')}
+                />
+                <label className="btn btn-outline-primary" htmlFor="tipo-aservico">À Serviço</label>
+              </div>
+            </div>
+
+            <div className="alert alert-warning d-flex align-items-start gap-3 mb-0 py-3">
+              <div className="form-check mb-0" style={{ paddingLeft: '1.5rem' }}>
+                <input
+                  type="checkbox" className="form-check-input" id="extraordinaria"
+                  checked={form.isExtraordinaria}
+                  onChange={(e) => set('isExtraordinaria', e.target.checked)}
+                  style={{ marginTop: '0.15rem' }}
+                />
+              </div>
+              <label htmlFor="extraordinaria" style={{ cursor: 'pointer', flex: 1 }} className="mb-0">
+                <span className="fw-semibold d-block">Solicitação Extraordinária</span>
+                <small className="text-muted">
+                  Marque quando o gestor estiver ausente. A aprovação irá diretamente para o RH.
+                </small>
+              </label>
+            </div>
+          </Bloco>
+
+          {/* ── Bloco 2: Datas ── */}
+          <Bloco num={2} title="Datas">
+            <div className="mb-3">
+              <label className={LBL} style={lblStyle}>Data e hora da saída <span className="text-danger">*</span></label>
+              <input
+                type="datetime-local"
+                className="form-control"
+                value={form.dataSaida}
+                onChange={(e) => set('dataSaida', e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="mb-3">
+              <label className={LBL} style={lblStyle}>Há previsão de retorno?</label>
+              <div className="btn-group w-100" role="group">
+                <input
+                  type="radio" className="btn-check" name="retorno" id="retorno-sim"
+                  checked={form.previsaoRetorno} onChange={() => set('previsaoRetorno', true)}
+                />
+                <label className="btn btn-outline-primary" htmlFor="retorno-sim">Sim</label>
+
+                <input
+                  type="radio" className="btn-check" name="retorno" id="retorno-nao"
+                  checked={!form.previsaoRetorno} onChange={() => set('previsaoRetorno', false)}
+                />
+                <label className="btn btn-outline-primary" htmlFor="retorno-nao">Não</label>
+              </div>
+            </div>
+
+            {form.previsaoRetorno && (
+              <div className="mb-0">
+                <label className={LBL} style={lblStyle}>
+                  Data e hora prevista de retorno
+                  {!isParticular ? <span className="text-danger"> *</span> : <span className="text-muted fw-normal"> (opcional)</span>}
                 </label>
                 <input
-                  type="date"
+                  type="datetime-local"
                   className="form-control"
                   value={form.dataPrevistaRetorno}
                   onChange={(e) => set('dataPrevistaRetorno', e.target.value)}
-                  min={new Date().toISOString().split('T')[0]}
+                  min={form.dataSaida || agoraLocal()}
                 />
               </div>
-              <div className="col-md-6">
-                <label className="form-label">
-                  Horário previsto{!isParticular && ' *'}
-                  {isParticular && <span className="text-muted fw-normal"> (opcional)</span>}
+            )}
+          </Bloco>
+
+          {/* ── Bloco 3: Detalhes do destino ── */}
+          <Bloco num={3} title="Detalhes do destino">
+            {isParticular ? (
+              <div className="mb-0">
+                <label className={LBL} style={lblStyle}>
+                  Endereço / Local <span className="text-muted fw-normal">(opcional)</span>
                 </label>
                 <input
-                  type="time"
-                  className="form-control"
-                  value={form.horarioPrevistodoRetorno}
-                  onChange={(e) => set('horarioPrevistodoRetorno', e.target.value)}
+                  type="text" className="form-control"
+                  value={form.destino}
+                  onChange={(e) => set('destino', e.target.value)}
+                  placeholder="Ex: Rua das Flores, 123 — São Paulo/SP"
                 />
               </div>
-            </div>
-          )}
-
-          <div className="alert alert-warning d-flex align-items-start gap-3 mb-0 py-3">
-            <div className="form-check mb-0" style={{ paddingLeft: '1.5rem' }}>
-              <input
-                type="checkbox"
-                className="form-check-input"
-                id="extraordinaria"
-                checked={form.isExtraordinaria}
-                onChange={(e) => set('isExtraordinaria', e.target.checked)}
-                style={{ marginTop: '0.15rem' }}
-              />
-            </div>
-            <label htmlFor="extraordinaria" style={{ cursor: 'pointer', flex: 1 }} className="mb-0">
-              <span className="fw-semibold d-block">Solicitação Extraordinária</span>
-              <small className="text-muted">
-                Marque quando o gestor estiver ausente. A aprovação irá diretamente para o RH.
-              </small>
-            </label>
-          </div>
-
-          {/* ─── Detalhes do Destino ─── */}
-          <SectionHeader icon="bi-geo-alt" title="Detalhes do Destino" withDivider />
-
-          {isParticular ? (
-            <div className="mb-2">
-              <label className="form-label">
-                Endereço / Local <span className="text-muted fw-normal">(opcional)</span>
-              </label>
-              <input
-                type="text"
-                className="form-control"
-                value={form.destino}
-                onChange={(e) => set('destino', e.target.value)}
-                placeholder="Ex: Rua das Flores, 123 — São Paulo/SP"
-              />
-            </div>
-          ) : (
-            <>
-              <div className="row g-3 mb-3">
-                <div className="col-md-6">
-                  <label className="form-label">Unidade de Destino *</label>
-                  <select
-                    className="form-select"
-                    value={form.unidadeDestino}
-                    onChange={(e) => handleUnidadeChange(e.target.value)}
-                    required
-                  >
-                    <option value="">Selecione…</option>
-                    {Object.keys(UNIDADES_SETORES).map((u) => (
-                      <option key={u} value={u}>{u}</option>
-                    ))}
-                  </select>
+            ) : (
+              <>
+                <div className="row g-3 mb-3">
+                  <div className="col-md-6">
+                    <label className={LBL} style={lblStyle}>Unidade de Destino <span className="text-danger">*</span></label>
+                    <select
+                      className="form-select"
+                      value={form.unidadeDestino}
+                      onChange={(e) => handleUnidadeChange(e.target.value)}
+                      required
+                    >
+                      <option value="">Selecione…</option>
+                      {Object.keys(UNIDADES_SETORES).map((u) => (
+                        <option key={u} value={u}>{u}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="col-md-6">
+                    <label className={LBL} style={lblStyle}>Setor de Destino <span className="text-danger">*</span></label>
+                    <select
+                      className="form-select"
+                      value={form.setorDestino}
+                      onChange={(e) => set('setorDestino', e.target.value)}
+                      disabled={!form.unidadeDestino}
+                      required
+                    >
+                      <option value="">
+                        {form.unidadeDestino ? 'Selecione…' : 'Escolha uma unidade primeiro'}
+                      </option>
+                      {setoresDisponiveis.map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
-                <div className="col-md-6">
-                  <label className="form-label">Setor de Destino *</label>
-                  <select
-                    className="form-select"
-                    value={form.setorDestino}
-                    onChange={(e) => set('setorDestino', e.target.value)}
-                    disabled={!form.unidadeDestino}
+
+                <div className="mb-0">
+                  <label className={LBL} style={lblStyle}>Motivo <span className="text-danger">*</span></label>
+                  <textarea
+                    className="form-control" rows={3}
+                    value={form.motivo}
+                    onChange={(e) => set('motivo', e.target.value)}
+                    placeholder="Descreva a justificativa da saída a serviço…"
                     required
-                  >
-                    <option value="">
-                      {form.unidadeDestino ? 'Selecione…' : 'Escolha uma unidade primeiro'}
-                    </option>
-                    {setoresDisponiveis.map((s) => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
-                  </select>
+                  />
                 </div>
-              </div>
+              </>
+            )}
+          </Bloco>
 
-              <div className="mb-2">
-                <label className="form-label">Motivo *</label>
-                <textarea
-                  className="form-control"
-                  rows={3}
-                  value={form.motivo}
-                  onChange={(e) => set('motivo', e.target.value)}
-                  placeholder="Descreva a justificativa da saída a serviço…"
-                  required
-                />
-              </div>
-            </>
-          )}
-
-          {error && <div className="alert alert-danger small py-2 mt-3 mb-0">{error}</div>}
+          {error && <div className="alert alert-danger small py-2 mb-0">{error}</div>}
         </form>
       </Modal.Body>
 
       <Modal.Footer>
         <button
-          type="button"
-          className="btn btn-outline-secondary"
-          onClick={onClose}
-          disabled={loading}
+          type="button" className="btn btn-outline-secondary"
+          onClick={onClose} disabled={loading}
         >
           Cancelar
         </button>

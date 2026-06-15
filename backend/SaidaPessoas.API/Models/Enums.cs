@@ -31,3 +31,13 @@ public enum StatusUsuario
     Ativo = 2,
     Inativo = 3
 }
+
+public enum TipoNotificacao
+{
+    NovaSolicitacao = 1,
+    AprovacaoGestor = 2,
+    AprovacaoRH = 3,
+    Reprovacao = 4,
+    Exclusao = 5,
+    MudancaStatus = 6
+}

@@ -24,6 +24,7 @@ export interface SolicitacaoResponse {
   dataPrevistaRetorno?: string;
   horarioPrevistodoRetorno?: string;
   isExtraordinaria: boolean;
+  dataSaida: string;
   dataSolicitacao: string;
   status: StatusSolicitacao;
   motivoReprovacao?: string;
@@ -32,7 +33,9 @@ export interface SolicitacaoResponse {
   horaRetorno?: string;
   nomeSolicitante: string;
   dataAprovacaoGestor?: string;
+  nomeAprovadorGestor?: string;
   dataAprovacaoRH?: string;
+  nomeAprovadorRH?: string;
 }
 
 export interface CriarSolicitacaoDto {
@@ -46,6 +49,7 @@ export interface CriarSolicitacaoDto {
   dataPrevistaRetorno?: string;
   horarioPrevistodoRetorno?: string;
   isExtraordinaria: boolean;
+  dataSaida: string;
 }
 
 export interface PagedResult<T> {
@@ -93,4 +97,13 @@ export interface RegistroDto {
   email: string;
   setor: string;
   senha: string;
+}
+
+export interface Notificacao {
+  id: number;
+  mensagem: string;
+  tipo: string;
+  lida: boolean;
+  dataCriacao: string;
+  solicitacaoId?: number;
 }

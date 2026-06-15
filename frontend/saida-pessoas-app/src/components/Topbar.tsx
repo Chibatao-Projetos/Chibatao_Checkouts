@@ -1,6 +1,7 @@
 import React from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import NotificationBell from './NotificationBell';
 interface PageConfig { title: string; subtitle?: string }
 interface TopbarProps { onToggle: () => void; }
 
@@ -71,6 +72,7 @@ const Topbar: React.FC<TopbarProps> = ({ onToggle }) => {
 
         {/* Usuário */}
         <div className="d-flex align-items-center gap-3">
+          <NotificationBell />
           <span
             className="d-none d-sm-block text-white"
             style={{ fontSize: '0.875rem', fontWeight: 500 }}

@@ -49,26 +49,37 @@ const ExportButton: React.FC<ExportButtonProps> = ({ data }) => {
   };
 
   return (
-    <div className="relative">
+    <div className="position-relative">
       <button
+        type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1.5 px-3 py-2 bg-gray-700 text-white text-sm rounded hover:bg-gray-800 transition-colors"
+        className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1"
       >
-        Exportar ▾
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <path d="M7 10l5 5 5-5M12 15V3" />
+        </svg>
+        Exportar
       </button>
       {open && (
         <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 mt-1 bg-white border border-gray-200 rounded shadow-lg z-20 min-w-[160px]">
+          <div className="position-fixed top-0 start-0 w-100 h-100" style={{ zIndex: 1040 }} onClick={() => setOpen(false)} />
+          <div
+            className="position-absolute end-0 mt-1 bg-white border rounded shadow-sm"
+            style={{ zIndex: 1050, minWidth: 190 }}
+          >
             <button
+              type="button"
               onClick={exportCSV}
-              className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 border-b border-gray-100"
+              className="btn btn-link text-decoration-none text-dark w-100 text-start px-3 py-2 border-bottom small"
             >
               CSV — Power BI / Excel
             </button>
             <button
+              type="button"
               onClick={exportJSON}
-              className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50"
+              className="btn btn-link text-decoration-none text-dark w-100 text-start px-3 py-2 small"
             >
               JSON — API / BI
             </button>

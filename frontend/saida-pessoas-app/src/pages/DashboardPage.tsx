@@ -6,7 +6,6 @@ import type { ListParams } from '../services/api';
 import type { DashboardStats, PerfilUsuario, SolicitacaoResponse } from '../types';
 import DataTable from '../components/DataTable/DataTable';
 import FilterPanel from '../components/DataTable/FilterPanel';
-import ExportButton from '../components/DataTable/ExportButton';
 
 // ---- KPI definitions per role ----
 interface KpiDef {
@@ -116,6 +115,7 @@ const DashboardPage: React.FC = () => {
   const pageSize = 10;
   const [sortBy, setSortBy] = useState('dataSolicitacao');
   const [sortDesc, setSortDesc] = useState(true);
+  const [draftFilters, setDraftFilters] = useState<Filters>(EMPTY_FILTERS);
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [activeTab, setActiveTab] = useState<TabId>(tabConfig[0].id);
   const [loading, setLoading] = useState(false);
@@ -171,8 +171,7 @@ const DashboardPage: React.FC = () => {
   };
 
   const handleFilterChange = (key: string, value: string) => {
-    setFilters((prev) => ({ ...prev, [key]: value }));
-    setPage(1);
+    setDraftFilters((prev) => ({ ...prev, [key]: value }));
   };
 
   const handleAction = () => {
@@ -258,7 +257,6 @@ const DashboardPage: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3">
-            <ExportButton data={data} />
             {canCreate && (
               <button
                 onClick={() => navigate('/solicitacoes/pessoas', { state: { abrirNovaSolicitacao: true } })}
@@ -273,12 +271,15 @@ const DashboardPage: React.FC = () => {
         {/* Filters — hidden for Portaria */}
         {perfil !== 'Portaria' && (
           <FilterPanel
-            filters={filters}
+            filters={draftFilters}
             onChange={handleFilterChange}
+            onApply={() => { setFilters(draftFilters); setPage(1); }}
             onClear={() => {
+              setDraftFilters(EMPTY_FILTERS);
               setFilters(EMPTY_FILTERS);
               setPage(1);
             }}
+            loading={loading}
           />
         )}
 
@@ -303,6 +304,7 @@ const DashboardPage: React.FC = () => {
             onAction={handleAction}
             nomeVigilante={user?.nome}
             isHistorico={isHistorico}
+            title="Solicitações"
           />
         )}
       </main>

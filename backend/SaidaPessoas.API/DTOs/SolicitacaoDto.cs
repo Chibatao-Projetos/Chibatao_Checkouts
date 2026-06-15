@@ -14,7 +14,8 @@ public record CriarSolicitacaoDto(
     bool PrevisaoRetorno,
     [property: JsonConverter(typeof(NaiveDateTimeConverter))] DateTime? DataPrevistaRetorno,
     string? HorarioPrevistodoRetorno,
-    bool IsExtraordinaria
+    bool IsExtraordinaria,
+    [property: JsonConverter(typeof(NaiveDateTimeConverterNonNull))] DateTime DataSaida
 );
 
 public record RegistrarSaidaDto(string NomeVigilante);
@@ -33,6 +34,7 @@ public record SolicitacaoResponseDto(
     [property: JsonConverter(typeof(NaiveDateTimeConverter))] DateTime? DataPrevistaRetorno,
     string? HorarioPrevistodoRetorno,
     bool IsExtraordinaria,
+    [property: JsonConverter(typeof(NaiveDateTimeConverterNonNull))] DateTime DataSaida,
     DateTime DataSolicitacao,
     string Status,
     string? MotivoReprovacao,
@@ -41,7 +43,9 @@ public record SolicitacaoResponseDto(
     DateTime? HoraRetorno,
     string NomeSolicitante,
     DateTime? DataAprovacaoGestor,
-    DateTime? DataAprovacaoRH
+    string? NomeAprovadorGestor,
+    DateTime? DataAprovacaoRH,
+    string? NomeAprovadorRH
 );
 
 public record LoginDto(string Identificacao, string Senha);

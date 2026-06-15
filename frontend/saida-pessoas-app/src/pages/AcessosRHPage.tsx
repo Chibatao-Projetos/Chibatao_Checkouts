@@ -5,7 +5,6 @@ import type { ListParams } from '../services/api';
 import type { SolicitacaoResponse } from '../types';
 import DataTable from '../components/DataTable/DataTable';
 import FilterPanel from '../components/DataTable/FilterPanel';
-import ExportButton from '../components/DataTable/ExportButton';
 
 const EMPTY = {
   nome: '', status: '', setor: '', tipoSaida: '', destino: '', dataInicio: '', dataFim: '',
@@ -18,6 +17,7 @@ const AcessosRHPage: React.FC = () => {
   const [page, setPage]     = useState(1);
   const [sortBy, setSortBy] = useState('dataSolicitacao');
   const [sortDesc, setSortDesc] = useState(true);
+  const [draftFilters, setDraftFilters] = useState(EMPTY);
   const [filters, setFilters] = useState(EMPTY);
   const [loading, setLoading] = useState(false);
   const pageSize = 10;
@@ -41,14 +41,12 @@ const AcessosRHPage: React.FC = () => {
 
   return (
     <div className="p-6 space-y-4">
-      <div className="flex items-center justify-end">
-        <ExportButton data={data} />
-      </div>
-
       <FilterPanel
-        filters={filters}
-        onChange={(k, v) => { setFilters((p) => ({ ...p, [k]: v })); setPage(1); }}
-        onClear={() => { setFilters(EMPTY); setPage(1); }}
+        filters={draftFilters}
+        onChange={(k, v) => setDraftFilters((p) => ({ ...p, [k]: v }))}
+        onApply={() => { setFilters(draftFilters); setPage(1); }}
+        onClear={() => { setDraftFilters(EMPTY); setFilters(EMPTY); setPage(1); }}
+        loading={loading}
         showNome
         showSetor
         showDestino
@@ -62,6 +60,7 @@ const AcessosRHPage: React.FC = () => {
           onPageChange={setPage}
           onSortChange={(sb, sd) => { setSortBy(sb); setSortDesc(sd); setPage(1); }}
           perfil="RH" onAction={fetchData} nomeVigilante={user?.nome}
+          title="Aprovações — RH"
         />
       )}
     </div>
