@@ -1,7 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Modal } from 'react-bootstrap';
 import type { SolicitacaoResponse } from '../types';
+import { useAuth } from '../contexts/AuthContext';
+import { solicitacaoService } from '../services/api';
 import StatusBadge from './ui/StatusBadge';
+import ReprovacaoModal from './ReprovacaoModal';
 
 const BG = 'rgb(15, 68, 106)';
 
@@ -51,11 +54,49 @@ const SectionTitle: React.FC<{ children: React.ReactNode }> = ({ children }) => 
   <h6 className="text-uppercase text-secondary fw-semibold mb-3" style={{ letterSpacing: '0.05em' }}>{children}</h6>
 );
 
-interface Props { solicitacao: SolicitacaoResponse | null; onClose: () => void; }
+interface Props {
+  solicitacao: SolicitacaoResponse | null;
+  onClose: () => void;
+  /** Chamado após aprovar/reprovar (ex.: recarregar a lista). */
+  onActionDone?: () => void;
+}
 
-const DetalhesSolicitacaoModal: React.FC<Props> = ({ solicitacao: s, onClose }) => {
+const DetalhesSolicitacaoModal: React.FC<Props> = ({ solicitacao: s, onClose, onActionDone }) => {
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const [reprovando, setReprovando] = useState(false);
+
   const reprovadoPorGestor = s?.status === 'Reprovado' && !!s?.dataAprovacaoGestor && !s?.dataAprovacaoRH;
   const reprovadoPorRH     = s?.status === 'Reprovado' && !!s?.dataAprovacaoRH;
+
+  const perfil = user?.perfil;
+  const podeGestor = !!s && (perfil === 'Gestor' || perfil === 'Admin') && s.status === 'AguardandoGestor';
+  const podeRH     = !!s && (perfil === 'RH' || perfil === 'Admin') && s.status === 'AguardandoRH';
+  const podeAprovar = podeGestor || podeRH;
+
+  const aprovar = async () => {
+    if (!s) return;
+    setLoading(true);
+    try {
+      if (s.status === 'AguardandoGestor') await solicitacaoService.aprovarGestor(s.id);
+      else if (s.status === 'AguardandoRH') await solicitacaoService.aprovarRH(s.id);
+      onActionDone?.();
+      onClose();
+    } catch (err: unknown) {
+      alert((err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Erro ao aprovar.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const confirmarReprovacao = async (motivo: string) => {
+    if (!s) return;
+    if (s.status === 'AguardandoGestor') await solicitacaoService.reprovarGestor(s.id, motivo);
+    else if (s.status === 'AguardandoRH') await solicitacaoService.reprovarRH(s.id, motivo);
+    setReprovando(false);
+    onActionDone?.();
+    onClose();
+  };
 
   const destinoResumo = s
     ? (s.tipoSaida === 'AServico'
@@ -64,6 +105,7 @@ const DetalhesSolicitacaoModal: React.FC<Props> = ({ solicitacao: s, onClose }) 
     : '';
 
   return (
+    <>
     <Modal show={!!s} onHide={onClose} size="xl" centered scrollable>
       <Modal.Header closeButton>
         <Modal.Title className="fs-5 d-flex align-items-center gap-2 flex-wrap">
@@ -229,9 +271,26 @@ const DetalhesSolicitacaoModal: React.FC<Props> = ({ solicitacao: s, onClose }) 
       </Modal.Body>
 
       <Modal.Footer>
-        <button className="btn btn-outline-secondary" onClick={onClose}>Fechar</button>
+        {podeAprovar && (
+          <>
+            <button className="btn btn-outline-danger" onClick={() => setReprovando(true)} disabled={loading}>
+              Reprovar
+            </button>
+            <button className="btn btn-success" onClick={aprovar} disabled={loading}>
+              {loading ? 'Aprovando…' : 'Aprovar'}
+            </button>
+          </>
+        )}
+        <button className="btn btn-outline-secondary" onClick={onClose} disabled={loading}>Fechar</button>
       </Modal.Footer>
     </Modal>
+
+    <ReprovacaoModal
+      isOpen={reprovando}
+      onClose={() => setReprovando(false)}
+      onConfirm={confirmarReprovacao}
+    />
+    </>
   );
 };
 

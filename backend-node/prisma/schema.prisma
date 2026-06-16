@@ -1,0 +1,77 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Notificacoes {
+  Id            Int      @id(map: "PK_Notificacoes") @default(autoincrement())
+  UsuarioId     Int
+  Mensagem      String
+  Tipo          String
+  Lida          Boolean
+  DataCriacao   DateTime @db.Timestamp(6)
+  SolicitacaoId Int?
+  Usuarios      Usuarios @relation(fields: [UsuarioId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_Notificacoes_Usuarios_UsuarioId")
+
+  @@index([UsuarioId, Lida], map: "IX_Notificacoes_UsuarioId_Lida")
+}
+
+model Solicitacoes {
+  Id                                                Int       @id(map: "PK_Solicitacoes") @default(autoincrement())
+  Nome                                              String
+  Setor                                             String
+  Destino                                           String
+  UnidadeDestino                                    String?
+  SetorDestino                                      String?
+  TipoSaida                                         String
+  PrevisaoRetorno                                   Boolean
+  DataPrevistaRetorno                               DateTime? @db.Timestamp(6)
+  HorarioPrevistodoRetorno                          String?
+  IsExtraordinaria                                  Boolean
+  DataSolicitacao                                   DateTime  @db.Timestamp(6)
+  Status                                            String
+  MotivoReprovacao                                  String?
+  NomeVigilante                                     String?
+  HoraSaida                                         DateTime? @db.Timestamp(6)
+  HoraRetorno                                       DateTime? @db.Timestamp(6)
+  SolicitanteId                                     Int
+  GestorAprovadorId                                 Int?
+  DataAprovacaoGestor                               DateTime? @db.Timestamp(6)
+  RHAprovadorId                                     Int?
+  DataAprovacaoRH                                   DateTime? @db.Timestamp(6)
+  DataSaida                                         DateTime  @default(dbgenerated("'-infinity'::timestamp without time zone")) @db.Timestamp(6)
+  Usuarios_Solicitacoes_GestorAprovadorIdToUsuarios Usuarios? @relation("Solicitacoes_GestorAprovadorIdToUsuarios", fields: [GestorAprovadorId], references: [Id], onDelete: Restrict, onUpdate: NoAction, map: "FK_Solicitacoes_Usuarios_GestorAprovadorId")
+  Usuarios_Solicitacoes_RHAprovadorIdToUsuarios     Usuarios? @relation("Solicitacoes_RHAprovadorIdToUsuarios", fields: [RHAprovadorId], references: [Id], onDelete: Restrict, onUpdate: NoAction, map: "FK_Solicitacoes_Usuarios_RHAprovadorId")
+  Usuarios_Solicitacoes_SolicitanteIdToUsuarios     Usuarios  @relation("Solicitacoes_SolicitanteIdToUsuarios", fields: [SolicitanteId], references: [Id], onUpdate: NoAction, map: "FK_Solicitacoes_Usuarios_SolicitanteId")
+
+  @@index([GestorAprovadorId], map: "IX_Solicitacoes_GestorAprovadorId")
+  @@index([RHAprovadorId], map: "IX_Solicitacoes_RHAprovadorId")
+  @@index([SolicitanteId], map: "IX_Solicitacoes_SolicitanteId")
+}
+
+model Usuarios {
+  Id                                                    Int            @id(map: "PK_Usuarios") @default(autoincrement())
+  Nome                                                  String
+  Matricula                                             String         @unique(map: "IX_Usuarios_Matricula")
+  Email                                                 String         @unique(map: "IX_Usuarios_Email")
+  SenhaHash                                             String
+  Setor                                                 String
+  Perfil                                                String
+  Status                                                String
+  DataCadastro                                          DateTime       @db.Timestamp(6)
+  Notificacoes                                          Notificacoes[]
+  Solicitacoes_Solicitacoes_GestorAprovadorIdToUsuarios Solicitacoes[] @relation("Solicitacoes_GestorAprovadorIdToUsuarios")
+  Solicitacoes_Solicitacoes_RHAprovadorIdToUsuarios     Solicitacoes[] @relation("Solicitacoes_RHAprovadorIdToUsuarios")
+  Solicitacoes_Solicitacoes_SolicitanteIdToUsuarios     Solicitacoes[] @relation("Solicitacoes_SolicitanteIdToUsuarios")
+}
+
+model EFMigrationsHistory {
+  MigrationId    String @id(map: "PK___EFMigrationsHistory") @db.VarChar(150)
+  ProductVersion String @db.VarChar(32)
+
+  @@map("__EFMigrationsHistory")
+}

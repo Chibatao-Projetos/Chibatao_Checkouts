@@ -361,7 +361,7 @@ const DataTable: React.FC<DataTableProps> = ({
           onAction();
         }}
       />
-      <DetalhesSolicitacaoModal solicitacao={detalhes} onClose={() => setDetalhes(null)} />
+      <DetalhesSolicitacaoModal solicitacao={detalhes} onClose={() => setDetalhes(null)} onActionDone={onAction} />
 
       {/* Confirmação de exclusão (somente pendentes) */}
       <Modal show={!!excluirAlvo} onHide={excluindo ? undefined : () => setExcluirAlvo(null)} centered>

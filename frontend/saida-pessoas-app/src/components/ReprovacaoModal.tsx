@@ -40,7 +40,7 @@ const ReprovacaoModal: React.FC<ReprovacaoModalProps> = ({ isOpen, onClose, onCo
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+    <div className="fixed inset-0 flex items-center justify-center bg-black/50 p-4" style={{ zIndex: 2000 }}>
       <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center text-red-600 text-lg font-bold shrink-0">

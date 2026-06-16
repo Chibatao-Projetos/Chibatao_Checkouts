@@ -152,7 +152,7 @@ const NotificationBell: React.FC = () => {
       )}
     </div>
 
-    <DetalhesSolicitacaoModal solicitacao={detalhe} onClose={() => setDetalhe(null)} />
+    <DetalhesSolicitacaoModal solicitacao={detalhe} onClose={() => setDetalhe(null)} onActionDone={refreshCount} />
     </>
   );
 };
