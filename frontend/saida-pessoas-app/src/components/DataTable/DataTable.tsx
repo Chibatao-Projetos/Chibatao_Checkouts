@@ -12,23 +12,93 @@ import type { SolicitacaoResponse, PerfilUsuario } from '../../types';
 import { solicitacaoService } from '../../services/api';
 import ReprovacaoModal from '../ReprovacaoModal';
 import DetalhesSolicitacaoModal from '../DetalhesSolicitacaoModal';
+import ConfirmacaoAprovacaoModal, { type ConfirmacaoVariant } from '../ConfirmacaoAprovacaoModal';
 import StatusBadge from '../ui/StatusBadge';
 import ExportButton from './ExportButton';
 
-/* ── Ícones de ação ──────────────────────────────────────────── */
-const EyeIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-    strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
-    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-    <circle cx="12" cy="12" r="3" />
+/* ── Flag destacada de Exceção Máxima (bypass do RH) ─────────── */
+export const ExcecaoBadge = ({ pendente }: { pendente: boolean }) => (
+  <span
+    className="badge d-inline-flex align-items-center gap-1"
+    style={{ background: '#B45309', color: '#fff', fontSize: '0.68rem', letterSpacing: '0.05em', border: '1px solid #92400E' }}
+    title={pendente ? 'Liberada por Exceção Máxima do gestor — auditoria do RH pendente' : 'Liberada por Exceção Máxima do gestor — validada pelo RH (post-facto)'}
+  >
+    ⚠ EXCEÇÃO{pendente ? '' : ' ✓'}
+  </span>
+);
+
+/* ── Ícones de ação (mesmo traçado dos SVGs fornecidos) ──────── */
+const iconProps = {
+  width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor',
+  strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const,
+};
+const InfoIcon = () => (
+  <svg {...iconProps}>
+    <circle cx="12" cy="12" r="10" />
+    <path d="M12 16v-4" />
+    <path d="M12 8h.01" />
   </svg>
 );
 const TrashIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-    strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
-    <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-    <path d="M10 11v6M14 11v6" />
+  <svg {...iconProps}>
+    <path d="M10 11v6" />
+    <path d="M14 11v6" />
+    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+    <path d="M3 6h18" />
+    <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
   </svg>
+);
+const CheckIcon = () => (
+  <svg {...iconProps}>
+    <path d="M20 6 9 17l-5-5" />
+  </svg>
+);
+const XIcon = () => (
+  <svg {...iconProps}>
+    <path d="M18 6 6 18" />
+    <path d="m6 6 12 12" />
+  </svg>
+);
+const WarningIcon = () => (
+  <svg {...iconProps}>
+    <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+    <path d="M12 9v4" />
+    <path d="M12 17h.01" />
+  </svg>
+);
+const ArrowRightIcon = () => (
+  <svg {...iconProps}>
+    <path d="M5 12h14" />
+    <path d="m13 6 6 6-6 6" />
+  </svg>
+);
+const ArrowLeftIcon = () => (
+  <svg {...iconProps}>
+    <path d="M19 12H5" />
+    <path d="m11 18-6-6 6-6" />
+  </svg>
+);
+
+/* ── Botão de ação circular (padrão visual único para toda a coluna Ações) ── */
+const IconBtn: React.FC<{
+  icon: React.ReactNode; bg: string; color: string; border: string; title: string;
+  onClick: () => void; disabled?: boolean;
+}> = ({ icon, bg, color, border, title, onClick, disabled }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    disabled={disabled}
+    title={title}
+    aria-label={title}
+    className="d-inline-flex align-items-center justify-content-center rounded-circle"
+    style={{
+      width: 34, height: 34, flexShrink: 0,
+      background: bg, color, border: `1px solid ${border}`,
+      cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.55 : 1,
+    }}
+  >
+    {icon}
+  </button>
 );
 
 /* ── Props ───────────────────────────────────────────────────── */
@@ -65,6 +135,8 @@ const DataTable: React.FC<DataTableProps> = ({
   const [detalhes, setDetalhes]         = useState<SolicitacaoResponse | null>(null);
   const [excluirAlvo, setExcluirAlvo]   = useState<SolicitacaoResponse | null>(null);
   const [excluindo, setExcluindo]       = useState(false);
+  const [confirmacao, setConfirmacao]   = useState<{ s: SolicitacaoResponse; variant: ConfirmacaoVariant } | null>(null);
+  const [confirmando, setConfirmando]   = useState(false);
 
   const handleAction = async (action: () => Promise<unknown>, id: number) => {
     setLoadingId(id);
@@ -74,6 +146,23 @@ const DataTable: React.FC<DataTableProps> = ({
     } catch (err: unknown) {
       alert((err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Erro.');
     } finally { setLoadingId(null); }
+  };
+
+  /* Trava de confirmação: executa a aprovação escolhida após o "Sim". */
+  const handleConfirmar = async (motivo?: string) => {
+    if (!confirmacao) return;
+    const { s, variant } = confirmacao;
+    setConfirmando(true);
+    try {
+      if (variant === 'aprovar' && perfil === 'Gestor') await solicitacaoService.aprovarGestor(s.id);
+      else if (variant === 'aprovar')                   await solicitacaoService.aprovarRH(s.id);
+      else if (variant === 'excecao')                   await solicitacaoService.aprovarGestorExcecao(s.id, motivo);
+      else                                              await solicitacaoService.validarBypass(s.id);
+      setConfirmacao(null);
+      onAction();
+    } catch (err: unknown) {
+      alert((err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Erro ao aprovar.');
+    } finally { setConfirmando(false); }
   };
 
   const handleExcluir = async () => {
@@ -88,26 +177,113 @@ const DataTable: React.FC<DataTableProps> = ({
     } finally { setExcluindo(false); }
   };
 
+  /* Ações por linha — ícones circulares, compartilhado entre a tabela (desktop) e os cards (mobile). */
+  const renderAcoes = (s: SolicitacaoResponse) => {
+    const busy = loadingId === s.id;
+    const auditoriaPendente = s.isBypassRH && !s.dataAprovacaoRH;
+    return (
+      <div className="d-flex gap-2 flex-nowrap justify-content-center">
+        <IconBtn
+          icon={<InfoIcon />} bg="#EFF6FF" color="#2563EB" border="#DBEAFE"
+          title="Ver detalhes" onClick={() => setDetalhes(s)}
+        />
+
+        {!isHistorico && perfil === 'Gestor' && s.status === 'AguardandoGestor' && (
+          <>
+            <IconBtn
+              icon={<CheckIcon />} bg="#ECFDF5" color="#16A34A" border="#BBF7D0"
+              title="Aceitar" disabled={busy} onClick={() => setConfirmacao({ s, variant: 'aprovar' })}
+            />
+            <IconBtn
+              icon={<XIcon />} bg="#FEF2F2" color="#DC2626" border="#FECACA"
+              title="Reprovar" disabled={busy} onClick={() => setReprovacaoModal({ id: s.id, tipo: 'gestor' })}
+            />
+          </>
+        )}
+
+        {!isHistorico && perfil === 'Gestor' && s.status === 'AguardandoRH' && (
+          <IconBtn
+            icon={<WarningIcon />} bg="#FFFBEB" color="#B45309" border="#FDE68A"
+            title="Exceção Máxima — RH ausente, libera direto para a Portaria"
+            disabled={busy} onClick={() => setConfirmacao({ s, variant: 'excecao' })}
+          />
+        )}
+
+        {!isHistorico && perfil === 'RH' && s.status === 'AguardandoRH' && (
+          <>
+            <IconBtn
+              icon={<CheckIcon />} bg="#ECFDF5" color="#16A34A" border="#BBF7D0"
+              title="Aceitar" disabled={busy} onClick={() => setConfirmacao({ s, variant: 'aprovar' })}
+            />
+            <IconBtn
+              icon={<XIcon />} bg="#FEF2F2" color="#DC2626" border="#FECACA"
+              title="Reprovar" disabled={busy} onClick={() => setReprovacaoModal({ id: s.id, tipo: 'rh' })}
+            />
+          </>
+        )}
+
+        {!isHistorico && perfil === 'RH' && auditoriaPendente && s.status !== 'AguardandoRH' && (
+          <IconBtn
+            icon={<CheckIcon />} bg="#FFFBEB" color="#B45309" border="#FDE68A"
+            title="Validar Post-Facto (auditoria da Exceção Máxima)"
+            disabled={busy} onClick={() => setConfirmacao({ s, variant: 'validarPostFacto' })}
+          />
+        )}
+
+        {!isHistorico && perfil === 'Portaria' && s.status === 'LiberadoPortaria' && (
+          <IconBtn
+            icon={<ArrowRightIcon />} bg="#ECFDF5" color="#16A34A" border="#BBF7D0"
+            title="Registrar Saída" disabled={busy}
+            onClick={() => handleAction(() => solicitacaoService.registrarSaida(s.id, nomeVigilante ?? 'Vigilante'), s.id)}
+          />
+        )}
+        {!isHistorico && perfil === 'Portaria' && s.status === 'EmTransito' && (
+          <IconBtn
+            icon={<ArrowLeftIcon />} bg="#FFFBEB" color="#B45309" border="#FDE68A"
+            title="Registrar Retorno" disabled={busy}
+            onClick={() => handleAction(() => solicitacaoService.registrarRetorno(s.id), s.id)}
+          />
+        )}
+
+        {!isHistorico && permiteExcluir && podeExcluir(s) && (
+          <IconBtn
+            icon={<TrashIcon />} bg="#F1F5F9" color="#64748B" border="#E2E8F0"
+            title="Excluir" disabled={busy} onClick={() => setExcluirAlvo(s)}
+          />
+        )}
+      </div>
+    );
+  };
+
+  /* Ordem na Portaria: horários primeiro, Vigilante penúltima e Status por último. */
   const portariaColumns: ColumnDef<SolicitacaoResponse>[] = [
-    { accessorKey: 'nomeVigilante', header: 'Vigilante',    cell: ({ getValue }) => getValue<string | undefined>() ?? '—' },
     { accessorKey: 'horaSaida',     header: 'Hora Saída',   cell: ({ getValue }) => { const v = getValue<string | undefined>(); return v ? new Date(v).toLocaleString('pt-BR') : '—'; } },
     { accessorKey: 'horaRetorno',   header: 'Hora Retorno', cell: ({ getValue }) => { const v = getValue<string | undefined>(); return v ? new Date(v).toLocaleString('pt-BR') : '—'; } },
+    { accessorKey: 'nomeVigilante', header: 'Vigilante',    cell: ({ getValue }) => getValue<string | undefined>() ?? '—' },
   ];
 
+  const statusColumn: ColumnDef<SolicitacaoResponse> = {
+    accessorKey: 'status',
+    header: 'Status',
+    cell: ({ row }) => {
+      const { status, isBypassRH, dataAprovacaoRH, isExtraordinaria } = row.original;
+      return (
+        <div className="d-flex flex-column gap-1 align-items-center">
+          <div className="d-flex gap-1 align-items-center justify-content-center flex-wrap">
+            <StatusBadge status={status} />
+            {isExtraordinaria && <span className="badge text-bg-warning" title="Solicitação Extraordinária">⚡</span>}
+          </div>
+          {isBypassRH && <ExcecaoBadge pendente={!dataAprovacaoRH} />}
+        </div>
+      );
+    },
+  };
+
   const columns = useMemo<ColumnDef<SolicitacaoResponse>[]>(() => [
-    /* ── Detalhes ── */
+    /* ── Ações (primeira coluna) ── */
     {
-      id: 'detalhes', header: '', size: 48,
-      cell: ({ row }) => (
-        <button
-          className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-1 lh-1"
-          onClick={() => setDetalhes(row.original)}
-          title="Ver detalhes"
-          aria-label="Ver detalhes"
-        >
-          <EyeIcon />
-        </button>
-      ),
+      id: 'acoes', header: 'Ações',
+      cell: ({ row }) => renderAcoes(row.original),
     },
     { accessorKey: 'id',   header: 'ID',   size: 55 },
     { accessorKey: 'nome', header: 'Nome' },
@@ -128,128 +304,15 @@ const DataTable: React.FC<DataTableProps> = ({
       cell: ({ getValue }) => getValue<string>() === 'AServico' ? 'À Serviço' : 'Particular',
     },
     {
-      accessorKey: 'isExtraordinaria',
-      header: 'Ext.',
-      cell: ({ getValue }) => getValue<boolean>()
-        ? <span className="badge text-bg-warning">⚡</span>
-        : <span className="text-muted">—</span>,
-    },
-    {
       accessorKey: 'previsaoRetorno',
-      header: 'Retorno?',
-      cell: ({ row }) => {
-        const { previsaoRetorno, dataPrevistaRetorno } = row.original;
-        if (!previsaoRetorno) return <span className="text-muted">Não</span>;
-        return (
-          <span>
-            Sim
-            {dataPrevistaRetorno && (
-              <small className="d-block text-muted">
-                {new Date(dataPrevistaRetorno).toLocaleString('pt-BR')}
-              </small>
-            )}
-          </span>
-        );
-      },
+      header: 'Retorno',
+      cell: ({ getValue }) => getValue<boolean>()
+        ? <span>Sim</span>
+        : <span className="text-muted">Não</span>,
     },
-    {
-      accessorKey: 'dataSaida',
-      header: 'Data/Hora Saída',
-      cell: ({ getValue }) => {
-        const v = getValue<string | undefined>();
-        return v ? new Date(v).toLocaleString('pt-BR') : '—';
-      },
-    },
-    {
-      accessorKey: 'dataSolicitacao',
-      header: 'Solicitado em',
-      cell: ({ getValue }) => new Date(getValue<string>()).toLocaleString('pt-BR'),
-    },
-    {
-      accessorKey: 'status',
-      header: 'Status',
-      cell: ({ row }) => {
-        const { status, motivoReprovacao } = row.original;
-        return (
-          <div>
-            <StatusBadge status={status} />
-            {status === 'Reprovado' && motivoReprovacao && (
-              <small
-                className="d-block text-danger mt-1 text-truncate"
-                style={{ maxWidth: 150 }}
-                title={motivoReprovacao}
-              >
-                {motivoReprovacao}
-              </small>
-            )}
-          </div>
-        );
-      },
-    },
-    ...(perfil === 'Portaria' ? portariaColumns : []),
-    {
-      id: 'acoes', header: 'Ações',
-      cell: ({ row }) => {
-        const s = row.original;
-        const busy = loadingId === s.id;
-        if (isHistorico) return <span className="text-muted small">—</span>;
-        return (
-          <div className="d-flex gap-1 flex-wrap">
-            {perfil === 'Gestor' && s.status === 'AguardandoGestor' && (
-              <>
-                <button
-                  className="btn btn-sm btn-primary"
-                  onClick={() => handleAction(() => solicitacaoService.aprovarGestor(s.id), s.id)}
-                  disabled={busy}
-                >{busy ? '…' : 'Aprovar'}</button>
-                <button
-                  className="btn btn-sm btn-outline-danger"
-                  onClick={() => setReprovacaoModal({ id: s.id, tipo: 'gestor' })}
-                  disabled={busy}
-                >Reprovar</button>
-              </>
-            )}
-            {perfil === 'RH' && s.status === 'AguardandoRH' && (
-              <>
-                <button
-                  className="btn btn-sm btn-primary"
-                  onClick={() => handleAction(() => solicitacaoService.aprovarRH(s.id), s.id)}
-                  disabled={busy}
-                >{busy ? '…' : 'Validar'}</button>
-                <button
-                  className="btn btn-sm btn-outline-danger"
-                  onClick={() => setReprovacaoModal({ id: s.id, tipo: 'rh' })}
-                  disabled={busy}
-                >Reprovar</button>
-              </>
-            )}
-            {perfil === 'Portaria' && s.status === 'LiberadoPortaria' && (
-              <button
-                className="btn btn-sm btn-success"
-                onClick={() => handleAction(() => solicitacaoService.registrarSaida(s.id, nomeVigilante ?? 'Vigilante'), s.id)}
-                disabled={busy}
-              >{busy ? '…' : 'Reg. Saída'}</button>
-            )}
-            {perfil === 'Portaria' && s.status === 'EmTransito' && (
-              <button
-                className="btn btn-sm btn-warning"
-                onClick={() => handleAction(() => solicitacaoService.registrarRetorno(s.id), s.id)}
-                disabled={busy}
-              >{busy ? '…' : 'Reg. Retorno'}</button>
-            )}
-            {permiteExcluir && podeExcluir(s) && (
-              <button
-                className="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center p-1 lh-1"
-                onClick={() => setExcluirAlvo(s)}
-                disabled={busy}
-                title="Excluir"
-                aria-label="Excluir solicitação"
-              ><TrashIcon /></button>
-            )}
-          </div>
-        );
-      },
-    },
+    /* Na Portaria: horários + Vigilante (penúltima) antes do Status (última). */
+    ...(perfil === 'Portaria' ? [...portariaColumns, statusColumn] : [statusColumn]),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   ], [perfil, loadingId, nomeVigilante, isHistorico, permiteExcluir]);
 
   const table = useReactTable({
@@ -278,8 +341,42 @@ const DataTable: React.FC<DataTableProps> = ({
           </h6>
           <ExportButton data={data} />
         </div>
-        <div className="table-responsive">
-          <table className="table table-hover table-striped align-middle mb-0">
+        {/* ── Cards (mobile-first, < md) — inclui o card de liberação da Portaria ── */}
+        <div className="d-md-none p-2 d-flex flex-column gap-2" style={{ background: '#f7f9fc' }}>
+          {data.length === 0 ? (
+            <p className="text-center text-muted py-5 mb-0">Nenhuma solicitação encontrada.</p>
+          ) : data.map((s) => {
+            const destino = s.tipoSaida === 'AServico'
+              ? [s.unidadeDestino, s.setorDestino].filter(Boolean).join(' · ') || s.destino
+              : s.destino;
+            return (
+              <div
+                key={s.id}
+                className="card shadow-sm"
+                style={s.isBypassRH ? { border: '2px solid #B45309' } : undefined}
+              >
+                <div className="card-body p-3">
+                  <div className="d-flex justify-content-between align-items-start gap-2 mb-1 flex-wrap">
+                    <span className="fw-semibold">#{s.id} — {s.nome}</span>
+                    <div className="d-flex gap-1 flex-wrap justify-content-end">
+                      {s.isBypassRH && <ExcecaoBadge pendente={!s.dataAprovacaoRH} />}
+                      {s.isExtraordinaria && <span className="badge text-bg-warning">⚡</span>}
+                      <StatusBadge status={s.status} />
+                    </div>
+                  </div>
+                  <p className="small text-muted mb-2">
+                    {s.setor} · {s.tipoSaida === 'AServico' ? 'À Serviço' : 'Particular'}
+                    {destino ? <> · {destino}</> : null}
+                  </p>
+                  {renderAcoes(s)}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="table-responsive d-none d-md-block">
+          <table className="table table-hover table-striped align-middle mb-0" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
             <thead className="table-light">
               {table.getHeaderGroups().map(hg => (
                 <tr key={hg.id}>
@@ -289,8 +386,12 @@ const DataTable: React.FC<DataTableProps> = ({
                       <th
                         key={header.id}
                         onClick={header.column.getToggleSortingHandler()}
-                        className="text-uppercase text-secondary fw-semibold"
-                        style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap', fontSize: '0.72rem', letterSpacing: '0.04em' }}
+                        className="text-uppercase text-secondary fw-semibold text-center"
+                        style={{
+                          cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap',
+                          fontSize: '0.72rem', letterSpacing: '0.04em',
+                          borderRight: '1px solid #dee2e6', borderBottom: '2px solid #dee2e6',
+                        }}
                       >
                         {flexRender(header.column.columnDef.header, header.getContext())}
                         {header.column.getCanSort() && (
@@ -315,7 +416,7 @@ const DataTable: React.FC<DataTableProps> = ({
                 table.getRowModel().rows.map(row => (
                   <tr key={row.id}>
                     {row.getVisibleCells().map(cell => (
-                      <td key={cell.id} style={{ whiteSpace: 'nowrap' }}>
+                      <td key={cell.id} className="text-center" style={{ whiteSpace: 'nowrap', borderRight: '1px solid #e9ecef' }}>
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </td>
                     ))}
@@ -362,6 +463,16 @@ const DataTable: React.FC<DataTableProps> = ({
         }}
       />
       <DetalhesSolicitacaoModal solicitacao={detalhes} onClose={() => setDetalhes(null)} onActionDone={onAction} />
+
+      {/* Trava de confirmação transversal (aprovações, exceção máxima e post-facto) */}
+      <ConfirmacaoAprovacaoModal
+        show={!!confirmacao}
+        nomeUsuario={confirmacao?.s.nome ?? ''}
+        variant={confirmacao?.variant}
+        loading={confirmando}
+        onClose={() => setConfirmacao(null)}
+        onConfirm={handleConfirmar}
+      />
 
       {/* Confirmação de exclusão (somente pendentes) */}
       <Modal show={!!excluirAlvo} onHide={excluindo ? undefined : () => setExcluirAlvo(null)} centered>

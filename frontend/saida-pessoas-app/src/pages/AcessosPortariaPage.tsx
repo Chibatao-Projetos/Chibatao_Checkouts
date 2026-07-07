@@ -53,7 +53,7 @@ const AcessosPortariaPage: React.FC = () => {
     <div className="p-6 space-y-4">
       {/* Tabs */}
       <div className="flex gap-1 bg-gray-200 p-1 rounded-lg w-fit">
-        {([['pendentes', 'Pendentes'], ['historico', 'Histórico']] as const).map(([id, label]) => (
+        {([['pendentes', 'Solicitações Pendentes'], ['historico', 'Histórico']] as const).map(([id, label]) => (
           <button key={id} onClick={() => handleTabChange(id)}
             className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
               tab === id ? 'bg-white shadow text-gray-800' : 'text-gray-500 hover:text-gray-700'

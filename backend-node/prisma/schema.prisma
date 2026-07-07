@@ -44,13 +44,19 @@ model Solicitacoes {
   RHAprovadorId                                     Int?
   DataAprovacaoRH                                   DateTime? @db.Timestamp(6)
   DataSaida                                         DateTime  @default(dbgenerated("'-infinity'::timestamp without time zone")) @db.Timestamp(6)
+  IsBypassRH                                        Boolean   @default(false)
+  BypassMotivo                                      String?
+  ColaboradorId                                     Int?
   Usuarios_Solicitacoes_GestorAprovadorIdToUsuarios Usuarios? @relation("Solicitacoes_GestorAprovadorIdToUsuarios", fields: [GestorAprovadorId], references: [Id], onDelete: Restrict, onUpdate: NoAction, map: "FK_Solicitacoes_Usuarios_GestorAprovadorId")
   Usuarios_Solicitacoes_RHAprovadorIdToUsuarios     Usuarios? @relation("Solicitacoes_RHAprovadorIdToUsuarios", fields: [RHAprovadorId], references: [Id], onDelete: Restrict, onUpdate: NoAction, map: "FK_Solicitacoes_Usuarios_RHAprovadorId")
   Usuarios_Solicitacoes_SolicitanteIdToUsuarios     Usuarios  @relation("Solicitacoes_SolicitanteIdToUsuarios", fields: [SolicitanteId], references: [Id], onUpdate: NoAction, map: "FK_Solicitacoes_Usuarios_SolicitanteId")
+  Usuarios_Solicitacoes_ColaboradorIdToUsuarios     Usuarios? @relation("Solicitacoes_ColaboradorIdToUsuarios", fields: [ColaboradorId], references: [Id], onDelete: Restrict, onUpdate: NoAction, map: "FK_Solicitacoes_Usuarios_ColaboradorId")
 
   @@index([GestorAprovadorId], map: "IX_Solicitacoes_GestorAprovadorId")
   @@index([RHAprovadorId], map: "IX_Solicitacoes_RHAprovadorId")
   @@index([SolicitanteId], map: "IX_Solicitacoes_SolicitanteId")
+  @@index([ColaboradorId], map: "IX_Solicitacoes_ColaboradorId")
+  @@index([IsBypassRH, RHAprovadorId], map: "IX_Solicitacoes_Bypass_Pendente")
 }
 
 model Usuarios {
@@ -60,6 +66,7 @@ model Usuarios {
   Email                                                 String         @unique(map: "IX_Usuarios_Email")
   SenhaHash                                             String
   Setor                                                 String
+  Unidade                                               String?
   Perfil                                                String
   Status                                                String
   DataCadastro                                          DateTime       @db.Timestamp(6)
@@ -67,6 +74,7 @@ model Usuarios {
   Solicitacoes_Solicitacoes_GestorAprovadorIdToUsuarios Solicitacoes[] @relation("Solicitacoes_GestorAprovadorIdToUsuarios")
   Solicitacoes_Solicitacoes_RHAprovadorIdToUsuarios     Solicitacoes[] @relation("Solicitacoes_RHAprovadorIdToUsuarios")
   Solicitacoes_Solicitacoes_SolicitanteIdToUsuarios     Solicitacoes[] @relation("Solicitacoes_SolicitanteIdToUsuarios")
+  Solicitacoes_Solicitacoes_ColaboradorIdToUsuarios     Solicitacoes[] @relation("Solicitacoes_ColaboradorIdToUsuarios")
 }
 
 model EFMigrationsHistory {

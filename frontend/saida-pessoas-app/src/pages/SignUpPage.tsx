@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { authService } from '../services/api';
+import { SETORES_USUARIO, UNIDADES } from '../constants/opcoes';
 
 const SignUpPage: React.FC = () => {
   const navigate = useNavigate();
@@ -9,6 +10,7 @@ const SignUpPage: React.FC = () => {
     matricula: '',
     email: '',
     setor: '',
+    unidade: '',
     senha: '',
     confirmarSenha: '',
   });
@@ -39,6 +41,7 @@ const SignUpPage: React.FC = () => {
         matricula: form.matricula,
         email: form.email,
         setor: form.setor,
+        unidade: form.unidade,
         senha: form.senha,
       });
       setSuccess(data.message);
@@ -123,14 +126,28 @@ const SignUpPage: React.FC = () => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Setor *</label>
-              <input
-                type="text"
+              <select
                 value={form.setor}
                 onChange={(e) => set('setor', e.target.value)}
                 required
-                placeholder="Ex: Financeiro"
                 className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              >
+                <option value="">Selecione…</option>
+                {SETORES_USUARIO.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Unidade *</label>
+              <select
+                value={form.unidade}
+                onChange={(e) => set('unidade', e.target.value)}
+                required
+                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Selecione…</option>
+                {UNIDADES.map((u) => <option key={u} value={u}>{u}</option>)}
+              </select>
             </div>
 
             <div className="md:col-span-2">

@@ -1,35 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Modal } from 'react-bootstrap';
-import { solicitacaoService } from '../services/api';
+import { solicitacaoService, usuariosService } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
-import type { TipoSaida } from '../types';
-
-const UNIDADES_SETORES: Record<string, string[]> = {
-  ALFANDEGADO: [
-    'DIRETORIA', 'COMERCIAL', 'AVERBAÇÃO', 'CONTROLADORIA', 'FATURAMENTO',
-    'SGQ', 'FALTAS E AVARIAS', 'FROTA', 'PATIO', 'PIER', 'PCO', 'AMBIENTAL',
-    'LOGISTICA', 'GATES', 'TI', 'ARMAZEM', 'ENTREPOSTO', 'MANUTENÇÃO DE PESADOS',
-    'NAVEGAÇÃO', 'MAPA', 'RH', 'GRC', 'BOLSÃO', 'PORTARIA 3', 'PORTARIA 2',
-    'SESMET', 'AMBULATÓRIO',
-  ],
-  ATR: [
-    'RECEPÇÃO', 'GESTÃO', 'PCO', 'TERMINAL', 'BALANÇA', 'FROTA', 'GATE',
-    'MANUTENÇÃO', 'SESMET', 'RH', 'FATURAMENTO', 'ARMAZÉM', 'DESEMBARQUE',
-  ],
-  TOMIASI: [
-    'RECEPÇÃO', 'GERÊNCIA', 'REMOÇÃO', 'COMERCIAL', 'GATE', 'OFICINA DE AUTOS',
-    'ABASTECIMENTO', 'TI INFORMÁTICA', 'RH BASE', 'SESMT/AMBULATÓRIO',
-  ],
-  RETROPORTO: [
-    'PRESIDENCIA', 'DIRETORIA FINANCEIRA', 'AMBIENTAL', 'DOCUMENTAÇÃO PORTUÁRIA',
-    'AREA FINANCEIRA', 'COBRANÇA', 'CONTAS A RECEBER/CAIXA', 'CONTABILIDADE',
-    'CONTAS A PAGAR', 'CONTROLADORIA', 'FATURAMENTO', 'CONTABILIDADE RETROPORTO',
-    'JURIDICO TRABALHISTA', 'RH', 'RECEPÇÃO PRESIDENCIAL', 'COMERCIAL', 'FISCAL',
-    'TI RETROPORTO', 'SUPRIMENTOS - COMPRAS', 'ARMAZEM', 'JURIDICO CIVIL',
-    'CSC/DAL', 'GRC', 'SESMET', 'AMBULATORIO', 'RECEPÇÃO RETROPORTO', 'TELEFONIA',
-    'GESTÃO DE COMPETENCIA', 'COPA DIRETORIA', 'SUPORTE TOTVS/AUDITORIA',
-  ],
-};
+import type { ColaboradorSimples, TipoSaida } from '../types';
+import { UNIDADES_SETORES } from '../constants/opcoes';
 
 const BG = 'rgb(15, 68, 106)';
 
@@ -87,13 +61,53 @@ const NovaSolicitacaoModal: React.FC<Props> = ({ show, onClose, onCreated }) => 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  /* Saída por terceiros: registrar a saída de outro colaborador */
+  const [paraTerceiro, setParaTerceiro] = useState(false);
+  const [colaboradores, setColaboradores] = useState<ColaboradorSimples[]>([]);
+  const [colaboradorId, setColaboradorId] = useState<number | ''>('');
+  const [buscaColaborador, setBuscaColaborador] = useState('');
+
   useEffect(() => {
     if (show) {
       setForm(buildInitialState(user?.nome ?? '', user?.setor ?? ''));
       setError('');
       setLoading(false);
+      setParaTerceiro(false);
+      setColaboradorId('');
+      setBuscaColaborador('');
     }
   }, [show, user?.nome, user?.setor]);
+
+  useEffect(() => {
+    if (paraTerceiro && colaboradores.length === 0) {
+      usuariosService.listarColaboradores()
+        .then(({ data }) => setColaboradores(data.filter((c) => c.id !== user?.userId)))
+        .catch(() => setError('Não foi possível carregar a lista de colaboradores.'));
+    }
+  }, [paraTerceiro, colaboradores.length, user?.userId]);
+
+  const colaboradoresFiltrados = useMemo(() => {
+    const q = buscaColaborador.trim().toLowerCase();
+    if (!q) return colaboradores;
+    return colaboradores.filter(
+      (c) => c.nome.toLowerCase().includes(q) || c.matricula.toLowerCase().includes(q) || c.setor.toLowerCase().includes(q),
+    );
+  }, [colaboradores, buscaColaborador]);
+
+  const selecionarColaborador = (id: number | '') => {
+    setColaboradorId(id);
+    const c = colaboradores.find((x) => x.id === id);
+    setForm((p) => ({
+      ...p,
+      nome: c ? c.nome : user?.nome ?? '',
+      setor: c ? c.setor : user?.setor ?? '',
+    }));
+  };
+
+  const toggleTerceiro = (ativo: boolean) => {
+    setParaTerceiro(ativo);
+    if (!ativo) selecionarColaborador('');
+  };
 
   const set = (key: string, value: unknown) => setForm((p) => ({ ...p, [key]: value }));
   const isParticular = form.tipoSaida === 'Particular';
@@ -111,6 +125,10 @@ const NovaSolicitacaoModal: React.FC<Props> = ({ show, onClose, onCreated }) => 
     e.preventDefault();
     setError('');
 
+    if (paraTerceiro && !colaboradorId) {
+      setError('Selecione o colaborador que vai sair.');
+      return;
+    }
     if (!form.dataSaida) {
       setError('Informe a data e hora da saída.');
       return;
@@ -142,6 +160,7 @@ const NovaSolicitacaoModal: React.FC<Props> = ({ show, onClose, onCreated }) => 
         horarioPrevistodoRetorno: undefined,
         isExtraordinaria: form.isExtraordinaria,
         dataSaida: form.dataSaida,
+        colaboradorId: paraTerceiro && colaboradorId ? colaboradorId : undefined,
       });
       onCreated();
       onClose();
@@ -178,19 +197,64 @@ const NovaSolicitacaoModal: React.FC<Props> = ({ show, onClose, onCreated }) => 
         <form id={FORM_ID} onSubmit={handleSubmit}>
           {/* ── Bloco 1: Informações principais ── */}
           <Bloco num={1} title="Informações principais">
+            {/* Saída por terceiros */}
+            <div className="border rounded p-3 mb-3" style={{ background: '#f0f6ff' }}>
+              <div className="form-check form-switch mb-0">
+                <input
+                  type="checkbox" className="form-check-input" id="para-terceiro" role="switch"
+                  checked={paraTerceiro}
+                  onChange={(e) => toggleTerceiro(e.target.checked)}
+                />
+                <label htmlFor="para-terceiro" className="form-check-label" style={{ cursor: 'pointer' }}>
+                  <span className="fw-semibold d-block">Registrar saída para outro colaborador</span>
+                  <small className="text-muted">A solicitação será criada em nome do colaborador selecionado.</small>
+                </label>
+              </div>
+
+              {paraTerceiro && (
+                <div className="row g-2 mt-1">
+                  <div className="col-12 col-md-5">
+                    <input
+                      type="text" className="form-control"
+                      placeholder="Buscar por nome, matrícula ou setor…"
+                      value={buscaColaborador}
+                      onChange={(e) => setBuscaColaborador(e.target.value)}
+                    />
+                  </div>
+                  <div className="col-12 col-md-7">
+                    <select
+                      className="form-select"
+                      value={colaboradorId}
+                      onChange={(e) => selecionarColaborador(e.target.value ? Number(e.target.value) : '')}
+                      required
+                    >
+                      <option value="">
+                        {colaboradores.length === 0 ? 'Carregando colaboradores…' : 'Selecione o colaborador que vai sair…'}
+                      </option>
+                      {colaboradoresFiltrados.map((c) => (
+                        <option key={c.id} value={c.id}>{c.nome} — {c.setor} ({c.matricula})</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="row g-3 mb-3">
               <div className="col-md-6">
                 <label className={LBL} style={lblStyle}>Nome completo <span className="text-danger">*</span></label>
                 <input
                   type="text" className="form-control"
-                  value={form.nome} onChange={(e) => set('nome', e.target.value)} required
+                  value={form.nome} onChange={(e) => set('nome', e.target.value)}
+                  readOnly={paraTerceiro} required
                 />
               </div>
               <div className="col-md-6">
                 <label className={LBL} style={lblStyle}>Setor <span className="text-danger">*</span></label>
                 <input
                   type="text" className="form-control"
-                  value={form.setor} onChange={(e) => set('setor', e.target.value)} required
+                  value={form.setor} onChange={(e) => set('setor', e.target.value)}
+                  readOnly={paraTerceiro} required
                 />
               </div>
             </div>

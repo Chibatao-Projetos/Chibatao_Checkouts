@@ -3,15 +3,25 @@ import {
   Param, ParseIntPipe, Put, Query,
 } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser, CurrentUser, Roles } from '../common/decorators';
 import { toInstant } from '../common/dates';
+import { SETORES_USUARIO, UNIDADES } from '../common/opcoes';
 
 const STATUS_USUARIO = ['Pendente', 'Ativo', 'Inativo'];
+
+interface ListarUsuariosParams {
+  status?: string;
+  id?: string;
+  nome?: string;
+  busca?: string;
+}
 const PERFIS = ['Solicitante', 'Gestor', 'RH', 'Portaria', 'Admin'];
 
 class AlterarPerfilDto { perfil!: string; }
 class AlterarSenhaAdminDto { novaSenha!: string; }
+class AlterarSetorDto { setor!: string; unidade!: string; }
 
 @Controller('admin')
 @Roles('Admin')
@@ -25,6 +35,7 @@ export class AdminController {
       matricula: u.Matricula,
       email: u.Email,
       setor: u.Setor,
+      unidade: u.Unidade ?? undefined,
       perfil: u.Perfil,
       status: u.Status,
       dataCadastro: toInstant(u.DataCadastro),
@@ -32,13 +43,31 @@ export class AdminController {
   }
 
   @Get('usuarios')
-  async listar(@Query('status') status?: string) {
-    const where = status && STATUS_USUARIO.includes(status) ? { Status: status } : {};
+  async listar(@Query() query: ListarUsuariosParams) {
+    const where: Prisma.UsuariosWhereInput = {};
+    if (query.status && STATUS_USUARIO.includes(query.status)) where.Status = query.status;
+    if (query.id?.trim()) {
+      const idNum = Number(query.id.trim());
+      if (!Number.isNaN(idNum)) where.Id = idNum;
+    }
+    if (query.nome?.trim()) where.Nome = { contains: query.nome.trim(), mode: 'insensitive' };
+    if (query.busca?.trim()) {
+      where.OR = [
+        { Email: { contains: query.busca.trim(), mode: 'insensitive' } },
+        { Matricula: { contains: query.busca.trim(), mode: 'insensitive' } },
+      ];
+    }
+
     const usuarios = await this.prisma.usuarios.findMany({
       where,
       orderBy: [{ Status: 'asc' }, { Nome: 'asc' }],
     });
     return usuarios.map((u) => this.map(u));
+  }
+
+  @Get('usuarios/:id')
+  async obter(@Param('id', ParseIntPipe) id: number) {
+    return this.map(await this.requireUser(id));
   }
 
   @Put('usuarios/:id/aprovar')
@@ -78,6 +107,15 @@ export class AdminController {
     await this.requireUser(id);
     await this.prisma.usuarios.update({ where: { Id: id }, data: { Perfil: dto.perfil } });
     return { message: `Perfil alterado para ${dto.perfil}.` };
+  }
+
+  @Put('usuarios/:id/setor')
+  async alterarSetor(@Param('id', ParseIntPipe) id: number, @Body() dto: AlterarSetorDto) {
+    if (!SETORES_USUARIO.includes(dto.setor)) throw new BadRequestException({ message: 'Setor inválido.' });
+    if (!UNIDADES.includes(dto.unidade)) throw new BadRequestException({ message: 'Unidade inválida.' });
+    await this.requireUser(id);
+    await this.prisma.usuarios.update({ where: { Id: id }, data: { Setor: dto.setor, Unidade: dto.unidade } });
+    return { message: 'Setor e unidade atualizados.' };
   }
 
   @Put('usuarios/:id/senha')

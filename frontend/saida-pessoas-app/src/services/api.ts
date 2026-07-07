@@ -1,6 +1,7 @@
 import axios from 'axios';
 import type {
   AuthUser,
+  ColaboradorSimples,
   CriarSolicitacaoDto,
   DashboardStats,
   Notificacao,
@@ -10,11 +11,14 @@ import type {
   UsuarioResponse,
 } from '../types';
 
-// O host da API acompanha o host que o navegador usou para abrir o frontend
-// (localhost, 10.140.0.x, etc.), evitando IP fixo que quebra quando o DHCP muda.
-// O backend roda sempre na porta 5000 da mesma máquina.
-const apiHost = window.location.hostname || 'localhost';
-const api = axios.create({ baseURL: `http://${apiHost}:5000/api` });
+// Mesmo formato de /usuarios/me e /admin/usuarios — reaproveitado para revalidar sessão.
+export type MeResponse = UsuarioResponse;
+
+// Via nginx (porta 80/443): usa caminho relativo /api, que o nginx proxia para o backend.
+// Acesso direto ao servidor (qualquer outra porta): aponta direto para a porta 8003.
+const isNginx = !window.location.port || window.location.port === '80' || window.location.port === '443';
+const apiBase = isNginx ? '/api' : `http://${window.location.hostname}:5000/api`;
+const api = axios.create({ baseURL: apiBase });
 
 api.interceptors.request.use((config) => {
   const raw = localStorage.getItem('auth');
@@ -52,6 +56,7 @@ export interface ListParams {
   sortDesc?: boolean;
   incluirHistorico?: boolean;
   somenteExtraordinarias?: boolean;
+  pendentesAuditoria?: boolean;
   minhas?: boolean;
   nome?: string;
   destino?: string;
@@ -87,6 +92,14 @@ export const solicitacaoService = {
   aprovarRH: (id: number) =>
     api.put(`/solicitacoes/${id}/aprovar-rh`),
 
+  /** Exceção Máxima: gestor libera direto para a portaria (bypass do RH, com assunção de risco). */
+  aprovarGestorExcecao: (id: number, motivo?: string) =>
+    api.put(`/solicitacoes/${id}/aprovar-gestor-excecao`, { motivo }),
+
+  /** Validação post-facto do RH sobre saída liberada por Exceção Máxima. */
+  validarBypass: (id: number) =>
+    api.put(`/solicitacoes/${id}/validar-bypass`),
+
   reprovarRH: (id: number, motivo: string) =>
     api.put(`/solicitacoes/${id}/reprovar-rh`, { motivo }),
 
@@ -113,14 +126,26 @@ export const notificacaoService = {
 };
 
 export const usuariosService = {
-  getMe: () => api.get('/usuarios/me'),
+  getMe: () => api.get<MeResponse>('/usuarios/me'),
+  listarColaboradores: () =>
+    api.get<ColaboradorSimples[]>('/usuarios/colaboradores'),
   alterarSenha: (senhaAtual: string, novaSenha: string) =>
     api.put('/usuarios/me/senha', { senhaAtual, novaSenha }),
 };
 
+export interface AdminListParams {
+  status?: string;
+  id?: string;
+  nome?: string;
+  busca?: string;
+}
+
 export const adminService = {
-  listarUsuarios: (status?: string) =>
-    api.get<UsuarioResponse[]>('/admin/usuarios', { params: status ? { status } : {} }),
+  listarUsuarios: (params?: AdminListParams) =>
+    api.get<UsuarioResponse[]>('/admin/usuarios', { params }),
+
+  obterUsuario: (id: number) =>
+    api.get<UsuarioResponse>(`/admin/usuarios/${id}`),
 
   aprovarUsuario: (id: number) =>
     api.put(`/admin/usuarios/${id}/aprovar`),
@@ -130,6 +155,9 @@ export const adminService = {
 
   alterarPerfil: (id: number, perfil: string) =>
     api.put(`/admin/usuarios/${id}/perfil`, { perfil }),
+
+  alterarSetor: (id: number, setor: string, unidade: string) =>
+    api.put(`/admin/usuarios/${id}/setor`, { setor, unidade }),
 
   alterarSenha: (id: number, novaSenha: string) =>
     api.put(`/admin/usuarios/${id}/senha`, { novaSenha }),

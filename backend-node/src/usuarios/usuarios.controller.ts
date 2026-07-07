@@ -29,6 +29,17 @@ export class UsuariosController {
     };
   }
 
+  /** Colaboradores ativos — usado no formulário de saída por terceiros. */
+  @Get('colaboradores')
+  async listarColaboradores() {
+    const usuarios = await this.prisma.usuarios.findMany({
+      where: { Status: 'Ativo' },
+      select: { Id: true, Nome: true, Setor: true, Matricula: true },
+      orderBy: { Nome: 'asc' },
+    });
+    return usuarios.map((u) => ({ id: u.Id, nome: u.Nome, setor: u.Setor, matricula: u.Matricula }));
+  }
+
   @Put('me/senha')
   async alterarMinhaSenha(@CurrentUser() user: AuthUser, @Body() dto: AlterarSenhaPropriaDto) {
     if (!dto.novaSenha || dto.novaSenha.length < 6) {

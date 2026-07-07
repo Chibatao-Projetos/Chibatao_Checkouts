@@ -21,6 +21,7 @@ export interface ListarParams {
   sortDesc?: string;
   incluirHistorico?: string;
   somenteExtraordinarias?: string;
+  pendentesAuditoria?: string;
   minhas?: string;
   nome?: string;
   destino?: string;
@@ -66,6 +67,10 @@ export class SolicitacoesService {
       horaSaida: toInstant(s.HoraSaida),
       horaRetorno: toInstant(s.HoraRetorno),
       nomeSolicitante: nomes.get(s.SolicitanteId) ?? '',
+      colaboradorId: s.ColaboradorId ?? undefined,
+      nomeColaborador: s.ColaboradorId ? nomes.get(s.ColaboradorId) : undefined,
+      isBypassRH: s.IsBypassRH ?? false,
+      bypassMotivo: s.BypassMotivo ?? undefined,
       dataAprovacaoGestor: toInstant(s.DataAprovacaoGestor),
       nomeAprovadorGestor: s.GestorAprovadorId ? nomes.get(s.GestorAprovadorId) : undefined,
       dataAprovacaoRH: toInstant(s.DataAprovacaoRH),
@@ -98,6 +103,12 @@ export class SolicitacoesService {
     }
 
     if (bool(q.somenteExtraordinarias)) where.IsExtraordinaria = true;
+    if (bool(q.pendentesAuditoria)) {
+      // Saídas liberadas por Exceção Máxima do gestor ainda sem validação post-facto do RH.
+      where.IsBypassRH = true;
+      where.RHAprovadorId = null;
+      delete where.Status;
+    }
     if (q.status && STATUS.includes(q.status)) where.Status = q.status;
     if (q.setor) where.Setor = { contains: q.setor };
     if (q.tipoSaida && TIPOS.includes(q.tipoSaida)) where.TipoSaida = q.tipoSaida;
@@ -135,7 +146,7 @@ export class SolicitacoesService {
     ]);
 
     const nomes = await this.nomes(
-      rows.flatMap((s) => [s.SolicitanteId, s.GestorAprovadorId, s.RHAprovadorId]),
+      rows.flatMap((s) => [s.SolicitanteId, s.GestorAprovadorId, s.RHAprovadorId, s.ColaboradorId]),
     );
     return { data: rows.map((s) => this.map(s, nomes)), total, page, pageSize };
   }
@@ -143,16 +154,32 @@ export class SolicitacoesService {
   async obterPorId(id: number) {
     const s = await this.prisma.solicitacoes.findUnique({ where: { Id: id } });
     if (!s) throw new NotFoundException();
-    const nomes = await this.nomes([s.SolicitanteId, s.GestorAprovadorId, s.RHAprovadorId]);
+    const nomes = await this.nomes([s.SolicitanteId, s.GestorAprovadorId, s.RHAprovadorId, s.ColaboradorId]);
     return this.map(s, nomes);
   }
 
   async criar(user: AuthUser, dto: CriarSolicitacaoDto) {
     const initialStatus = dto.isExtraordinaria ? 'AguardandoRH' : 'AguardandoGestor';
+
+    // Saída por terceiros: nome/setor vêm do cadastro do colaborador selecionado (evita divergência).
+    let nome = dto.nome;
+    let setor = dto.setor;
+    let colaboradorId: number | null = null;
+    if (dto.colaboradorId && dto.colaboradorId !== user.userId) {
+      const colaborador = await this.prisma.usuarios.findUnique({ where: { Id: dto.colaboradorId } });
+      if (!colaborador || colaborador.Status !== 'Ativo') {
+        throw new BadRequestException({ message: 'Colaborador selecionado não encontrado ou inativo.' });
+      }
+      nome = colaborador.Nome;
+      setor = colaborador.Setor;
+      colaboradorId = colaborador.Id;
+    }
+
     const s = await this.prisma.solicitacoes.create({
       data: {
-        Nome: dto.nome,
-        Setor: dto.setor,
+        Nome: nome,
+        Setor: setor,
+        ColaboradorId: colaboradorId,
         Destino: dto.destino,
         UnidadeDestino: dto.unidadeDestino ?? null,
         SetorDestino: dto.setorDestino ?? null,
@@ -208,6 +235,48 @@ export class SolicitacoesService {
     });
     await this.notificacoes.notificarReprovacao(updated, 'gestor', motivo);
     return { message: 'Solicitação reprovada pelo Gestor.' };
+  }
+
+  /**
+   * Aprovação de Exceção Máxima (bypass do RH, com assunção de risco pelo gestor):
+   * pula a etapa do RH e libera direto para a Portaria. O RH é notificado
+   * (in-app + e-mail) para auditar e validar a saída depois (post-facto).
+   */
+  async aprovarGestorExcecao(user: AuthUser, id: number, motivo?: string) {
+    const s = await this.prisma.solicitacoes.findUnique({ where: { Id: id } });
+    if (!s) throw new NotFoundException();
+    if (s.Status !== 'AguardandoGestor' && s.Status !== 'AguardandoRH') {
+      throw new BadRequestException({ message: 'Solicitação não está em etapa de aprovação.' });
+    }
+
+    const updated = await this.prisma.solicitacoes.update({
+      where: { Id: id },
+      data: {
+        Status: 'LiberadoPortaria',
+        IsBypassRH: true,
+        BypassMotivo: motivo?.trim() || null,
+        // Preserva a aprovação de gestor original, se já existia (caso AguardandoRH).
+        GestorAprovadorId: s.GestorAprovadorId ?? user.userId,
+        DataAprovacaoGestor: s.DataAprovacaoGestor ?? new Date(),
+      },
+    });
+    await this.notificacoes.notificarBypassRH(updated, user.nome, motivo);
+    return { message: 'Liberado para a portaria por Exceção Máxima. O RH fará a validação post-facto.' };
+  }
+
+  /** Validação post-facto do RH sobre uma saída liberada por Exceção Máxima. */
+  async validarBypass(user: AuthUser, id: number) {
+    const s = await this.prisma.solicitacoes.findUnique({ where: { Id: id } });
+    if (!s) throw new NotFoundException();
+    if (!s.IsBypassRH || s.RHAprovadorId != null) {
+      throw new BadRequestException({ message: 'Solicitação não possui auditoria post-facto pendente.' });
+    }
+    const updated = await this.prisma.solicitacoes.update({
+      where: { Id: id },
+      data: { RHAprovadorId: user.userId, DataAprovacaoRH: new Date() },
+    });
+    await this.notificacoes.notificarAprovacaoRH(updated);
+    return { message: 'Saída validada pelo RH (aprovação post-facto).' };
   }
 
   async aprovarRH(user: AuthUser, id: number) {

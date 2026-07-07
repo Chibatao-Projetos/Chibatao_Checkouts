@@ -3,7 +3,7 @@ import {
 } from '@nestjs/common';
 import { Response } from 'express';
 import { SolicitacoesService, ListarParams } from './solicitacoes.service';
-import { CriarSolicitacaoDto, RegistrarSaidaDto, ReprovarDto } from './dto';
+import { AprovarExcecaoDto, CriarSolicitacaoDto, RegistrarSaidaDto, ReprovarDto } from './dto';
 import { AuthUser, CurrentUser, Roles } from '../common/decorators';
 
 @Controller('solicitacoes')
@@ -63,6 +63,22 @@ export class SolicitacoesController {
   @Roles('Gestor', 'Admin')
   reprovarGestor(@CurrentUser() user: AuthUser, @Param('id', ParseIntPipe) id: number, @Body() dto: ReprovarDto) {
     return this.service.reprovarGestor(user, id, dto.motivo);
+  }
+
+  @Put(':id/aprovar-gestor-excecao')
+  @Roles('Gestor', 'Admin')
+  aprovarGestorExcecao(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: AprovarExcecaoDto,
+  ) {
+    return this.service.aprovarGestorExcecao(user, id, dto?.motivo);
+  }
+
+  @Put(':id/validar-bypass')
+  @Roles('RH', 'Admin')
+  validarBypass(@CurrentUser() user: AuthUser, @Param('id', ParseIntPipe) id: number) {
+    return this.service.validarBypass(user, id);
   }
 
   @Put(':id/aprovar-rh')

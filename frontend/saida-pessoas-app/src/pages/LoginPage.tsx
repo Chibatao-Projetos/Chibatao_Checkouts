@@ -149,7 +149,7 @@ const LoginPage: React.FC = () => {
                     style={{ paddingLeft: 42, paddingRight: 44, height: 48, borderRadius: 10 }}
                     value={senha}
                     onChange={e => setSenha(e.target.value)}
-                    placeholder="••••••••"
+                    placeholder=""
                     autoComplete="current-password"
                     required
                   />

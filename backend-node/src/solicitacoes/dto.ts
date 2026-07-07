@@ -10,10 +10,17 @@ export class CriarSolicitacaoDto {
   horarioPrevistodoRetorno?: string;
   isExtraordinaria!: boolean;
   dataSaida!: string;
+  /** Saída por terceiros: Id do colaborador que efetivamente vai sair (opcional). */
+  colaboradorId?: number;
 }
 
 export class ReprovarDto {
   motivo!: string;
+}
+
+export class AprovarExcecaoDto {
+  /** Justificativa da assunção de risco (opcional, recomendada para auditoria). */
+  motivo?: string;
 }
 
 export class RegistrarSaidaDto {

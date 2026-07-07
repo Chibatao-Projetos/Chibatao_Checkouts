@@ -1,7 +1,8 @@
-import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
+import { SETORES_USUARIO, UNIDADES } from '../common/opcoes';
 import { RegistroDto } from './dto';
 
 @Injectable()
@@ -39,6 +40,12 @@ export class AuthService {
   }
 
   async registro(dto: RegistroDto) {
+    if (!SETORES_USUARIO.includes(dto.setor)) {
+      throw new BadRequestException({ message: 'Setor inválido.' });
+    }
+    if (!UNIDADES.includes(dto.unidade)) {
+      throw new BadRequestException({ message: 'Unidade inválida.' });
+    }
     if (await this.prisma.usuarios.findUnique({ where: { Email: dto.email } })) {
       throw new ConflictException({ message: 'E-mail já cadastrado.' });
     }
@@ -52,6 +59,7 @@ export class AuthService {
         Matricula: dto.matricula,
         Email: dto.email,
         Setor: dto.setor,
+        Unidade: dto.unidade,
         SenhaHash: bcrypt.hashSync(dto.senha, 10),
         Perfil: 'Solicitante',
         Status: 'Pendente',

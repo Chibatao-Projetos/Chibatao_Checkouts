@@ -32,10 +32,21 @@ export interface SolicitacaoResponse {
   horaSaida?: string;
   horaRetorno?: string;
   nomeSolicitante: string;
+  colaboradorId?: number;
+  nomeColaborador?: string;
+  isBypassRH: boolean;
+  bypassMotivo?: string;
   dataAprovacaoGestor?: string;
   nomeAprovadorGestor?: string;
   dataAprovacaoRH?: string;
   nomeAprovadorRH?: string;
+}
+
+export interface ColaboradorSimples {
+  id: number;
+  nome: string;
+  setor: string;
+  matricula: string;
 }
 
 export interface CriarSolicitacaoDto {
@@ -50,6 +61,7 @@ export interface CriarSolicitacaoDto {
   horarioPrevistodoRetorno?: string;
   isExtraordinaria: boolean;
   dataSaida: string;
+  colaboradorId?: number;
 }
 
 export interface PagedResult<T> {
@@ -86,6 +98,7 @@ export interface UsuarioResponse {
   matricula: string;
   email: string;
   setor: string;
+  unidade?: string;
   perfil: string;
   status: StatusUsuario;
   dataCadastro: string;
@@ -96,6 +109,7 @@ export interface RegistroDto {
   matricula: string;
   email: string;
   setor: string;
+  unidade: string;
   senha: string;
 }
 

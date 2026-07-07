@@ -1,396 +1,192 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '../contexts/AuthContext';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { adminService } from '../services/api';
+import type { AdminListParams } from '../services/api';
 import type { UsuarioResponse } from '../types';
+import UsuarioStatusPill from '../components/ui/UsuarioStatusPill';
 
-type TabId = 'pendentes' | 'todos';
+/* Ícone "mais opções" (três pontos verticais) — abre a página de detalhes/aprovação. */
+const KebabIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="1" />
+    <circle cx="12" cy="5" r="1" />
+    <circle cx="12" cy="19" r="1" />
+  </svg>
+);
+const EraserIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+    <path d="m7 21-4.3-4.3a1 1 0 0 1 0-1.4L13 5l6 6-9.3 9.3a1 1 0 0 1-1.4 0Z" />
+    <path d="M22 21H7M5 11l6 6" />
+  </svg>
+);
+const SearchIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
+  </svg>
+);
 
-const PERFIS = ['Solicitante', 'Gestor', 'RH', 'Portaria', 'Admin'];
-
-const STATUS_BADGE: Record<string, string> = {
-  Pendente: 'bg-yellow-100 text-yellow-800',
-  Ativo:    'bg-green-100 text-green-800',
-  Inativo:  'bg-red-100 text-red-700',
-};
-
-interface EditModal {
-  type: 'perfil' | 'senha';
-  userId: number;
-  currentPerfil?: string;
-}
-
-interface ConfirmModal {
-  type: 'bloquear' | 'excluir';
-  usuario: UsuarioResponse;
-}
+const EMPTY_FILTERS: AdminListParams = { id: '', nome: '', busca: '', status: '' };
+const LBL = 'form-label text-uppercase fw-semibold text-muted mb-1';
+const lblStyle: React.CSSProperties = { fontSize: '0.68rem', letterSpacing: '0.05em' };
+const col = 'col-12 col-sm-6 col-md-4 col-lg-3';
 
 const AdminPage: React.FC = () => {
-  const { user } = useAuth();
+  const navigate = useNavigate();
 
-  const [tab, setTab]           = useState<TabId>('pendentes');
   const [usuarios, setUsuarios] = useState<UsuarioResponse[]>([]);
   const [loading, setLoading]   = useState(false);
 
-  // Modal de edição (perfil / senha)
-  const [editModal, setEditModal]     = useState<EditModal | null>(null);
-  const [editValue, setEditValue]     = useState('');
-  const [editLoading, setEditLoading] = useState(false);
-  const [editError, setEditError]     = useState('');
-  const [confirmarSenha, setConfirmarSenha] = useState('');
+  const [draftFilters, setDraftFilters] = useState<AdminListParams>(EMPTY_FILTERS);
+  const [filters, setFilters]           = useState<AdminListParams>(EMPTY_FILTERS);
 
-  // Modal de confirmação (bloquear / excluir)
-  const [confirmModal, setConfirmModal]       = useState<ConfirmModal | null>(null);
-  const [confirmLoading, setConfirmLoading]   = useState(false);
-  const [confirmError, setConfirmError]       = useState('');
+  const activeFilters = useMemo(
+    () => Object.fromEntries(Object.entries(filters).filter(([, v]) => v)),
+    [filters]
+  );
 
   const fetchUsuarios = useCallback(async () => {
     setLoading(true);
     try {
-      const statusFilter = tab === 'pendentes' ? 'Pendente' : undefined;
-      const { data } = await adminService.listarUsuarios(statusFilter);
+      const { data } = await adminService.listarUsuarios(activeFilters);
       setUsuarios(data);
     } catch {
       console.error('Erro ao carregar usuários.');
     } finally {
       setLoading(false);
     }
-  }, [tab]);
+  }, [activeFilters]);
 
   useEffect(() => { fetchUsuarios(); }, [fetchUsuarios]);
 
-  /* ── Handlers existentes ── */
-  const handleAprovar = async (id: number) => {
-    try {
-      await adminService.aprovarUsuario(id);
-      fetchUsuarios();
-    } catch (err: unknown) {
-      alert(
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-          'Erro ao aprovar.'
-      );
-    }
-  };
-
-  const handleRejeitar = async (id: number) => {
-    if (!window.confirm('Deseja rejeitar este cadastro?')) return;
-    try {
-      await adminService.rejeitarUsuario(id);
-      fetchUsuarios();
-    } catch {
-      alert('Erro ao rejeitar.');
-    }
-  };
-
-  /* ── Confirm modal (bloquear / excluir) ── */
-  const openConfirmModal = (type: 'bloquear' | 'excluir', usuario: UsuarioResponse) => {
-    setConfirmModal({ type, usuario });
-    setConfirmError('');
-  };
-
-  const handleConfirmAction = async () => {
-    if (!confirmModal) return;
-    setConfirmLoading(true);
-    setConfirmError('');
-    try {
-      if (confirmModal.type === 'bloquear') {
-        await adminService.bloquearUsuario(confirmModal.usuario.id);
-      } else {
-        await adminService.excluirUsuario(confirmModal.usuario.id);
-      }
-      setConfirmModal(null);
-      fetchUsuarios();
-    } catch (err: unknown) {
-      setConfirmError(
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-          `Erro ao ${confirmModal.type} usuário.`
-      );
-    } finally {
-      setConfirmLoading(false);
-    }
-  };
-
-  /* ── Edit modal (perfil / senha) ── */
-  const openEditModal = (type: 'perfil' | 'senha', userId: number, currentPerfil?: string) => {
-    setEditModal({ type, userId, currentPerfil });
-    setEditValue(type === 'perfil' ? (currentPerfil ?? 'Solicitante') : '');
-    setConfirmarSenha('');
-    setEditError('');
-  };
-
-  const handleEditConfirm = async () => {
-    if (!editModal) return;
-    setEditError('');
-
-    if (editModal.type === 'senha') {
-      if (editValue.length < 6) { setEditError('A senha deve ter no mínimo 6 caracteres.'); return; }
-      if (editValue !== confirmarSenha) { setEditError('As senhas não conferem.'); return; }
-    }
-
-    setEditLoading(true);
-    try {
-      if (editModal.type === 'perfil') {
-        await adminService.alterarPerfil(editModal.userId, editValue);
-      } else {
-        await adminService.alterarSenha(editModal.userId, editValue);
-      }
-      setEditModal(null);
-      fetchUsuarios();
-    } catch (err: unknown) {
-      setEditError(
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-          'Erro ao salvar.'
-      );
-    } finally {
-      setEditLoading(false);
-    }
-  };
+  const setDraft = (key: keyof AdminListParams, value: string) =>
+    setDraftFilters((p) => ({ ...p, [key]: value }));
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
+      <h5 className="fw-bold text-gray-800 mb-4">Todos os Usuários</h5>
 
-      {/* Tabs */}
-      <div className="flex gap-1 mb-6 bg-gray-200 p-1 rounded-lg w-fit">
-        {(['pendentes', 'todos'] as TabId[]).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              tab === t ? 'bg-white shadow text-gray-800' : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            {t === 'pendentes' ? '⏳ Pendentes de Aprovação' : '👥 Todos os Usuários'}
-          </button>
-        ))}
+      {/* ── Filtros — mesmo padrão visual do FilterPanel usado nas demais telas ── */}
+      <div className="card border-0 shadow-sm rounded-3 mb-3">
+        <div className="card-body p-3 p-md-4">
+          <form onSubmit={(e) => { e.preventDefault(); setFilters(draftFilters); }}>
+            <div className="row g-3 align-items-end">
+
+              <div className={col}>
+                <label className={LBL} style={lblStyle}>ID</label>
+                <input
+                  type="text"
+                  className="form-control form-control-sm"
+                  value={draftFilters.id}
+                  onChange={(e) => setDraft('id', e.target.value)}
+                  placeholder="ID"
+                />
+              </div>
+
+              <div className={col}>
+                <label className={LBL} style={lblStyle}>Nome</label>
+                <input
+                  type="text"
+                  className="form-control form-control-sm"
+                  value={draftFilters.nome}
+                  onChange={(e) => setDraft('nome', e.target.value)}
+                  placeholder="Buscar nome…"
+                />
+              </div>
+
+              <div className={col}>
+                <label className={LBL} style={lblStyle}>E-mail / Matrícula</label>
+                <input
+                  type="text"
+                  className="form-control form-control-sm"
+                  value={draftFilters.busca}
+                  onChange={(e) => setDraft('busca', e.target.value)}
+                  placeholder="E-mail ou matrícula…"
+                />
+              </div>
+
+              <div className={col}>
+                <label className={LBL} style={lblStyle}>Status</label>
+                <select
+                  className="form-select form-select-sm"
+                  value={draftFilters.status}
+                  onChange={(e) => setDraft('status', e.target.value)}
+                >
+                  <option value="">Todos</option>
+                  <option value="Pendente">Pendente</option>
+                  <option value="Ativo">Ativo</option>
+                  <option value="Inativo">Bloqueado</option>
+                </select>
+              </div>
+
+              {/* Ações — alinhadas à direita */}
+              <div className="col-12 d-flex justify-content-end gap-2 mt-1">
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1 px-3"
+                  onClick={() => { setDraftFilters(EMPTY_FILTERS); setFilters(EMPTY_FILTERS); }}
+                  disabled={loading}
+                >
+                  <EraserIcon /> Limpar
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-sm btn-primary d-inline-flex align-items-center gap-1 px-3"
+                  disabled={loading}
+                >
+                  {loading
+                    ? <><span className="spinner-border spinner-border-sm" role="status" /> Filtrando…</>
+                    : <><SearchIcon /> Filtrar</>}
+                </button>
+              </div>
+
+            </div>
+          </form>
+        </div>
       </div>
 
       {loading ? (
         <div className="flex items-center justify-center py-20 text-gray-400">Carregando…</div>
       ) : usuarios.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 p-10 text-center text-gray-400">
-          {tab === 'pendentes' ? 'Nenhum cadastro pendente de aprovação.' : 'Nenhum usuário encontrado.'}
+          Nenhum usuário encontrado.
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 text-sm">
+          <table className="min-w-full text-sm border-collapse">
             <thead className="bg-gray-50">
               <tr>
-                {['Nome', 'Matrícula', 'E-mail', 'Setor', 'Perfil', 'Status', 'Cadastrado em', 'Ações'].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">
+                {['Ações', 'ID', 'Nome', 'Matrícula', 'E-mail', 'Status'].map((h) => (
+                  <th key={h} className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap border border-gray-200">
                     {h}
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
-              {usuarios.map((u) => {
-                const isMe = u.id === user?.userId;
-                return (
-                  <tr key={u.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium text-gray-800">
-                      {u.nome}
-                      {isMe && <span className="ml-2 text-xs text-gray-400">(você)</span>}
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">{u.matricula}</td>
-                    <td className="px-4 py-3 text-gray-600">{u.email}</td>
-                    <td className="px-4 py-3 text-gray-600">{u.setor}</td>
-                    <td className="px-4 py-3">
-                      <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium">
-                        {u.perfil}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_BADGE[u.status] ?? ''}`}>
-                        {u.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
-                      {new Date(u.dataCadastro).toLocaleDateString('pt-BR')}
-                    </td>
-                    <td className="px-4 py-3 min-w-[240px]">
-                      <div className="flex gap-1.5 flex-wrap">
-                        {/* Pendente */}
-                        {u.status === 'Pendente' && (
-                          <>
-                            <button onClick={() => handleAprovar(u.id)}
-                              className="px-2.5 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700">
-                              Aprovar
-                            </button>
-                            <button onClick={() => handleRejeitar(u.id)}
-                              className="px-2.5 py-1 bg-red-100 text-red-700 text-xs rounded hover:bg-red-200">
-                              Rejeitar
-                            </button>
-                          </>
-                        )}
-
-                        {/* Ativo → pode bloquear */}
-                        {u.status === 'Ativo' && !isMe && (
-                          <button onClick={() => openConfirmModal('bloquear', u)}
-                            className="px-2.5 py-1 bg-orange-100 text-orange-700 text-xs rounded hover:bg-orange-200">
-                            Bloquear
-                          </button>
-                        )}
-
-                        {/* Inativo → pode reativar */}
-                        {u.status === 'Inativo' && (
-                          <button onClick={() => handleAprovar(u.id)}
-                            className="px-2.5 py-1 bg-green-100 text-green-700 text-xs rounded hover:bg-green-200">
-                            Reativar
-                          </button>
-                        )}
-
-                        {/* Sempre disponíveis (exceto em si mesmo para ações destrutivas) */}
-                        <button onClick={() => openEditModal('perfil', u.id, u.perfil)}
-                          className="px-2.5 py-1 bg-gray-100 text-gray-700 text-xs rounded hover:bg-gray-200">
-                          Perfil
-                        </button>
-                        <button onClick={() => openEditModal('senha', u.id)}
-                          className="px-2.5 py-1 bg-gray-100 text-gray-700 text-xs rounded hover:bg-gray-200">
-                          Senha
-                        </button>
-
-                        {/* Excluir — nunca aparece para o próprio admin */}
-                        {!isMe && (
-                          <button onClick={() => openConfirmModal('excluir', u)}
-                            className="px-2.5 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700">
-                            Excluir
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
+            <tbody>
+              {usuarios.map((u) => (
+                <tr key={u.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 text-center border border-gray-200">
+                    <button
+                      onClick={() => navigate(`/admin/usuarios/${u.id}`)}
+                      className="d-inline-flex align-items-center justify-content-center rounded-circle"
+                      style={{ width: 32, height: 32, background: '#EFF6FF', color: '#2563EB', border: '1px solid #DBEAFE', cursor: 'pointer' }}
+                      title="Ver detalhes"
+                      aria-label="Ver detalhes"
+                    >
+                      <KebabIcon />
+                    </button>
+                  </td>
+                  <td className="px-4 py-3 text-center text-gray-500 border border-gray-200">{u.id}</td>
+                  <td className="px-4 py-3 text-center font-medium text-gray-800 border border-gray-200">{u.nome}</td>
+                  <td className="px-4 py-3 text-center text-gray-600 border border-gray-200">{u.matricula}</td>
+                  <td className="px-4 py-3 text-center text-gray-600 border border-gray-200">{u.email}</td>
+                  <td className="px-4 py-3 text-center border border-gray-200">
+                    <UsuarioStatusPill status={u.status} />
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
-        </div>
-      )}
-
-      {/* ── Modal de Confirmação (Bloquear / Excluir) ── */}
-      {confirmModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-2xl">
-            <div className="flex items-center gap-3 mb-4">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg shrink-0 ${
-                confirmModal.type === 'excluir'
-                  ? 'bg-red-100 text-red-600'
-                  : 'bg-orange-100 text-orange-600'
-              }`}>
-                {confirmModal.type === 'excluir' ? '🗑' : '🔒'}
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-gray-800">
-                  {confirmModal.type === 'excluir' ? 'Excluir Usuário' : 'Bloquear Usuário'}
-                </h3>
-                <p className="text-xs text-gray-500">
-                  {confirmModal.type === 'excluir'
-                    ? 'Esta ação é permanente e não pode ser desfeita.'
-                    : 'O usuário perderá o acesso ao sistema.'}
-                </p>
-              </div>
-            </div>
-
-            <div className="bg-gray-50 rounded-lg px-4 py-3 mb-4 text-sm">
-              <p className="font-medium text-gray-800">{confirmModal.usuario.nome}</p>
-              <p className="text-gray-500 text-xs">{confirmModal.usuario.email} · {confirmModal.usuario.matricula}</p>
-            </div>
-
-            {confirmError && (
-              <p className="text-red-600 text-xs mb-3 bg-red-50 px-2 py-1 rounded">{confirmError}</p>
-            )}
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => setConfirmModal(null)}
-                disabled={confirmLoading}
-                className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleConfirmAction}
-                disabled={confirmLoading}
-                className={`flex-1 text-white py-2 rounded-lg text-sm font-medium disabled:opacity-60 ${
-                  confirmModal.type === 'excluir'
-                    ? 'bg-red-600 hover:bg-red-700'
-                    : 'bg-orange-600 hover:bg-orange-700'
-                }`}
-              >
-                {confirmLoading
-                  ? 'Aguarde…'
-                  : confirmModal.type === 'excluir'
-                    ? 'Excluir permanentemente'
-                    : 'Bloquear acesso'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Modal de Edição (Perfil / Senha) ── */}
-      {editModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-2xl">
-            <h3 className="text-lg font-bold text-gray-800 mb-4">
-              {editModal.type === 'perfil' ? 'Alterar Perfil' : 'Redefinir Senha'}
-            </h3>
-
-            {editModal.type === 'perfil' ? (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Novo Perfil</label>
-                <select
-                  value={editValue}
-                  onChange={(e) => setEditValue(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  {PERFIS.map((p) => <option key={p} value={p}>{p}</option>)}
-                </select>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Nova Senha</label>
-                  <input
-                    type="password"
-                    value={editValue}
-                    onChange={(e) => setEditValue(e.target.value)}
-                    placeholder="Mín. 6 caracteres"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Confirmar Senha</label>
-                  <input
-                    type="password"
-                    value={confirmarSenha}
-                    onChange={(e) => setConfirmarSenha(e.target.value)}
-                    placeholder="Repita a senha"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-            )}
-
-            {editError && (
-              <p className="text-red-600 text-xs mt-2 bg-red-50 px-2 py-1 rounded">{editError}</p>
-            )}
-
-            <div className="flex gap-3 mt-5">
-              <button
-                onClick={() => setEditModal(null)}
-                disabled={editLoading}
-                className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleEditConfirm}
-                disabled={editLoading}
-                className="flex-1 bg-blue-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-60"
-              >
-                {editLoading ? 'Salvando…' : 'Salvar'}
-              </button>
-            </div>
-          </div>
         </div>
       )}
     </div>

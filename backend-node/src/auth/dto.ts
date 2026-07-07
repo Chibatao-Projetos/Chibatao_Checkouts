@@ -8,5 +8,6 @@ export class RegistroDto {
   matricula!: string;
   email!: string;
   setor!: string;
+  unidade!: string;
   senha!: string;
 }

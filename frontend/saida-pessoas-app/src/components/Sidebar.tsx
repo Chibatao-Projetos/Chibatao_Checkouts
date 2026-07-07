@@ -18,7 +18,6 @@ const IC = {
   list:      ['M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2',
                'M9 5a2 2 0 002 2h2a2 2 0 002-2', 'M9 5a2 2 0 012-2h2a2 2 0 012 2'],
   person:    ['M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2', 'M12 11a4 4 0 100-8 4 4 0 000 8z'],
-  box:       ['M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z'],
   lock:      ['M19 11H5a2 2 0 00-2 2v7a2 2 0 002 2h14a2 2 0 002-2v-7a2 2 0 00-2-2z',
                'M17 11V7a5 5 0 00-10 0v4'],
   briefcase: ['M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z',
@@ -26,14 +25,45 @@ const IC = {
   users:     ['M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2',
                'M9 11a4 4 0 100-8 4 4 0 000 8z',
                'M23 21v-2a4 4 0 00-3-3.87', 'M16 3.13a4 4 0 010 7.75'],
-  building:  ['M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z'],
   cog:       ['M12 15a3 3 0 100-6 3 3 0 000 6z'],
-  shield:    ['M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z'],
   logout:    ['M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4', 'M16 17l5-5-5-5', 'M21 12H9'],
   chevD:     ['M6 9l6 6 6-6'],
   chevR:     ['M9 18l6-6-6-6'],
   bars:      ['M4 6h16', 'M4 12h16', 'M4 18h16'],
 };
+
+/* ── Ícones com traçado dedicado (fornecidos pelo usuário) ──── */
+const HouseIcon = ({ size = 18 }: { size?: number }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75}
+    strokeLinecap="round" strokeLinejoin="round" width={size} height={size} style={{ flexShrink: 0 }}>
+    <path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8" />
+    <path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+  </svg>
+);
+const PackageIcon = ({ size = 18 }: { size?: number }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75}
+    strokeLinecap="round" strokeLinejoin="round" width={size} height={size} style={{ flexShrink: 0 }}>
+    <path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z" />
+    <path d="M12 22V12" />
+    <polyline points="3.29 7 12 12 20.71 7" />
+    <path d="m7.5 4.27 9 5.15" />
+  </svg>
+);
+const ShieldCogIcon = ({ size = 18 }: { size?: number }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75}
+    strokeLinecap="round" strokeLinejoin="round" width={size} height={size} style={{ flexShrink: 0 }}>
+    <path d="m10.929 14.467-.383.924" />
+    <path d="M10.929 8.923 10.546 8" />
+    <path d="M13.225 8.923 13.608 8" />
+    <path d="m13.607 15.391-.382-.924" />
+    <path d="m14.849 10.547.923-.383" />
+    <path d="m14.849 12.843.923.383" />
+    <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
+    <path d="m9.305 10.547-.923-.383" />
+    <path d="m9.305 12.843-.923.383" />
+    <circle cx="12.077" cy="11.695" r="3" />
+  </svg>
+);
 
 /* ── Collapse via CSS max-height (sem react-bootstrap) ──────── */
 const CssCollapse: React.FC<{ isOpen: boolean; children: React.ReactNode }> = ({ isOpen, children }) => (
@@ -118,7 +148,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
                   <span className="ms-2">Pessoas</span>
                 </NavLink>
                 <NavLink to="/solicitacoes/material" className={subCls}>
-                  <Svg d={IC.box} size={15} />
+                  <PackageIcon size={15} />
                   <span className="ms-2">Material</span>
                 </NavLink>
               </div>
@@ -155,7 +185,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
                 )}
                 {canSee(['Portaria', 'Admin']) && (
                   <NavLink to="/acessos/portaria" className={subCls}>
-                    <Svg d={IC.building} size={15} />
+                    <HouseIcon size={15} />
                     <span className="ms-2">Portaria</span>
                   </NavLink>
                 )}
@@ -187,7 +217,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
         {/* Administração */}
         {perfil === 'Admin' && (
           <NavLink to="/admin" className={navCls} title="Administração">
-            <Svg d={IC.shield} />
+            <ShieldCogIcon />
             {!collapsed && <span className="ms-2">Administração</span>}
           </NavLink>
         )}
@@ -195,16 +225,6 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
 
       {/* ── Rodapé ── */}
       <div className="border-top sidebar-border p-3">
-        {!collapsed && (
-          <div className="mb-2" style={{ overflow: 'hidden' }}>
-            <div className="fw-medium small text-truncate" style={{ color: 'rgba(255,255,255,0.9)' }}>
-              {user?.nome}
-            </div>
-            <div className="small text-truncate" style={{ color: 'rgba(255,255,255,0.5)' }}>
-              {user?.perfil}
-            </div>
-          </div>
-        )}
         <button className="sidebar-parent-btn" title="Sair"
           onClick={() => { logout(); navigate('/login'); }}>
           <Svg d={IC.logout} />
