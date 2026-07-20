@@ -38,6 +38,8 @@ const AdminPage: React.FC = () => {
 
   const [draftFilters, setDraftFilters] = useState<AdminListParams>(EMPTY_FILTERS);
   const [filters, setFilters]           = useState<AdminListParams>(EMPTY_FILTERS);
+  const [sortBy, setSortBy]     = useState('');
+  const [sortDesc, setSortDesc] = useState(false);
 
   const activeFilters = useMemo(
     () => Object.fromEntries(Object.entries(filters).filter(([, v]) => v)),
@@ -47,14 +49,20 @@ const AdminPage: React.FC = () => {
   const fetchUsuarios = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await adminService.listarUsuarios(activeFilters);
+      const { data } = await adminService.listarUsuarios({ ...activeFilters, sortBy, sortDesc });
       setUsuarios(data);
     } catch {
       console.error('Erro ao carregar usuários.');
     } finally {
       setLoading(false);
     }
-  }, [activeFilters]);
+  }, [activeFilters, sortBy, sortDesc]);
+
+  const toggleSort = (field: string) => {
+    if (sortBy !== field) { setSortBy(field); setSortDesc(false); }
+    else if (!sortDesc) { setSortDesc(true); }
+    else { setSortBy(''); setSortDesc(false); }
+  };
 
   useEffect(() => { fetchUsuarios(); }, [fetchUsuarios]);
 
@@ -155,9 +163,23 @@ const AdminPage: React.FC = () => {
           <table className="min-w-full text-sm border-collapse">
             <thead className="bg-gray-50">
               <tr>
-                {['Ações', 'ID', 'Nome', 'Matrícula', 'E-mail', 'Status'].map((h) => (
-                  <th key={h} className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap border border-gray-200">
-                    {h}
+                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap border border-gray-200">
+                  Ações
+                </th>
+                {[
+                  ['id', 'ID'], ['nome', 'Nome'], ['matricula', 'Matrícula'],
+                  ['email', 'E-mail'], ['perfil', 'Perfil'], ['status', 'Status'],
+                ].map(([field, label]) => (
+                  <th
+                    key={field}
+                    onClick={() => toggleSort(field)}
+                    className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap border border-gray-200"
+                    style={{ cursor: 'pointer', userSelect: 'none' }}
+                  >
+                    {label}
+                    <span className="text-gray-400 ms-1" style={{ opacity: sortBy === field ? 1 : 0.4 }}>
+                      {sortBy === field ? (sortDesc ? '↓' : '↑') : '↕'}
+                    </span>
                   </th>
                 ))}
               </tr>
@@ -180,6 +202,11 @@ const AdminPage: React.FC = () => {
                   <td className="px-4 py-3 text-center font-medium text-gray-800 border border-gray-200">{u.nome}</td>
                   <td className="px-4 py-3 text-center text-gray-600 border border-gray-200">{u.matricula}</td>
                   <td className="px-4 py-3 text-center text-gray-600 border border-gray-200">{u.email}</td>
+                  <td className="px-4 py-3 text-center border border-gray-200">
+                    <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium">
+                      {u.perfil}
+                    </span>
+                  </td>
                   <td className="px-4 py-3 text-center border border-gray-200">
                     <UsuarioStatusPill status={u.status} />
                   </td>

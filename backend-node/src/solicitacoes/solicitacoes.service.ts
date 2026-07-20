@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { NotificacaoService } from '../notificacoes/notificacoes.service';
 import { AuthUser } from '../common/decorators';
 import { endOfDay, parseNaive, startOfDay, toInstant, toNaive } from '../common/dates';
+import { UNIDADES_COM_RH_OBRIGATORIO } from '../common/opcoes';
 import { CriarSolicitacaoDto } from './dto';
 
 const STATUS = ['AguardandoGestor', 'AguardandoRH', 'LiberadoPortaria', 'EmTransito', 'Concluido', 'Reprovado'];
@@ -21,7 +22,6 @@ export interface ListarParams {
   sortDesc?: string;
   incluirHistorico?: string;
   somenteExtraordinarias?: string;
-  pendentesAuditoria?: string;
   minhas?: string;
   nome?: string;
   destino?: string;
@@ -35,6 +35,16 @@ export class SolicitacoesService {
     private readonly prisma: PrismaService,
     private readonly notificacoes: NotificacaoService,
   ) {}
+
+  /**
+   * Particular: sempre passa pelo RH (fluxo completo Solicitante → Gestor → RH → Portaria).
+   * À Serviço: só exige RH se o destino for uma das unidades em UNIDADES_COM_RH_OBRIGATORIO;
+   * nas demais, a aprovação do Gestor já libera direto para a Portaria.
+   */
+  private requerRH(tipoSaida: string, unidadeDestino?: string | null): boolean {
+    if (tipoSaida === 'Particular') return true;
+    return UNIDADES_COM_RH_OBRIGATORIO.includes(unidadeDestino ?? '');
+  }
 
   private async nomes(ids: Array<number | null | undefined>): Promise<Map<number, string>> {
     const unique = [...new Set(ids.filter((x): x is number => !!x))];
@@ -98,17 +108,24 @@ export class SolicitacoesService {
             ? 'Concluido'
             : { in: ['LiberadoPortaria', 'EmTransito'] };
           break;
-        // RH e Admin veem tudo
+        case 'RH':
+          // RH só tem relação com: Particulares (fluxo completo), À Serviço para as
+          // unidades que exigem validação do RH, e qualquer Extraordinária (Gestor
+          // ausente — RH assume a aprovação no lugar dele). À Serviço normal para as
+          // demais unidades nunca passa pelo RH, então nem deve aparecer na fila dele.
+          where.AND = [{
+            OR: [
+              { TipoSaida: 'Particular' },
+              { IsExtraordinaria: true },
+              { TipoSaida: 'AServico', UnidadeDestino: { in: UNIDADES_COM_RH_OBRIGATORIO } },
+            ],
+          }];
+          break;
+        // Admin vê tudo
       }
     }
 
     if (bool(q.somenteExtraordinarias)) where.IsExtraordinaria = true;
-    if (bool(q.pendentesAuditoria)) {
-      // Saídas liberadas por Exceção Máxima do gestor ainda sem validação post-facto do RH.
-      where.IsBypassRH = true;
-      where.RHAprovadorId = null;
-      delete where.Status;
-    }
     if (q.status && STATUS.includes(q.status)) where.Status = q.status;
     if (q.setor) where.Setor = { contains: q.setor };
     if (q.tipoSaida && TIPOS.includes(q.tipoSaida)) where.TipoSaida = q.tipoSaida;
@@ -159,7 +176,10 @@ export class SolicitacoesService {
   }
 
   async criar(user: AuthUser, dto: CriarSolicitacaoDto) {
-    const initialStatus = dto.isExtraordinaria ? 'AguardandoRH' : 'AguardandoGestor';
+    // Extraordinária (Gestor ausente): pula o Gestor e vai direto para o RH, que assume
+    // a aprovação em seu lugar. Vale para Particular e À Serviço.
+    const isExtraordinaria = dto.isExtraordinaria;
+    const initialStatus = isExtraordinaria ? 'AguardandoRH' : 'AguardandoGestor';
 
     // Saída por terceiros: nome/setor vêm do cadastro do colaborador selecionado (evita divergência).
     let nome = dto.nome;
@@ -187,7 +207,7 @@ export class SolicitacoesService {
         PrevisaoRetorno: dto.previsaoRetorno,
         DataPrevistaRetorno: dto.dataPrevistaRetorno ? parseNaive(dto.dataPrevistaRetorno) : null,
         HorarioPrevistodoRetorno: dto.horarioPrevistodoRetorno ?? null,
-        IsExtraordinaria: dto.isExtraordinaria,
+        IsExtraordinaria: isExtraordinaria,
         DataSaida: parseNaive(dto.dataSaida),
         DataSolicitacao: new Date(),
         Status: initialStatus,
@@ -217,13 +237,20 @@ export class SolicitacoesService {
 
   async aprovarGestor(user: AuthUser, id: number) {
     const s = await this.requireStatus(id, 'AguardandoGestor', 'Solicitação não está aguardando aprovação do Gestor.');
+    const requerRH = this.requerRH(s.TipoSaida, s.UnidadeDestino);
+    const novoStatus = requerRH ? 'AguardandoRH' : 'LiberadoPortaria';
+
     const updated = await this.prisma.solicitacoes.update({
       where: { Id: id },
-      data: { Status: 'AguardandoRH', GestorAprovadorId: user.userId, DataAprovacaoGestor: new Date() },
+      data: { Status: novoStatus, GestorAprovadorId: user.userId, DataAprovacaoGestor: new Date() },
     });
-    await this.notificacoes.notificarAprovacaoGestor(updated);
-    void s;
-    return { message: 'Aprovado pelo Gestor.' };
+
+    if (requerRH) {
+      await this.notificacoes.notificarAprovacaoGestor(updated);
+      return { message: 'Aprovado pelo Gestor.' };
+    }
+    await this.notificacoes.notificarAprovacaoGestorLiberado(updated);
+    return { message: 'Aprovado pelo Gestor e liberado para a Portaria.' };
   }
 
   async reprovarGestor(user: AuthUser, id: number, motivo: string) {
@@ -245,6 +272,14 @@ export class SolicitacoesService {
   async aprovarGestorExcecao(user: AuthUser, id: number, motivo?: string) {
     const s = await this.prisma.solicitacoes.findUnique({ where: { Id: id } });
     if (!s) throw new NotFoundException();
+    if (s.TipoSaida !== 'Particular') {
+      throw new BadRequestException({ message: 'Exceção Máxima disponível apenas para solicitações Particulares.' });
+    }
+    if (s.IsExtraordinaria) {
+      throw new BadRequestException({
+        message: 'Solicitação já é Extraordinária (Gestor ausente, RH aprova). Exceção Máxima não se aplica aqui.',
+      });
+    }
     if (s.Status !== 'AguardandoGestor' && s.Status !== 'AguardandoRH') {
       throw new BadRequestException({ message: 'Solicitação não está em etapa de aprovação.' });
     }

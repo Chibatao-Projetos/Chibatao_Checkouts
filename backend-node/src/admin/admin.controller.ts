@@ -16,6 +16,8 @@ interface ListarUsuariosParams {
   id?: string;
   nome?: string;
   busca?: string;
+  sortBy?: string;
+  sortDesc?: string;
 }
 const PERFIS = ['Solicitante', 'Gestor', 'RH', 'Portaria', 'Admin'];
 
@@ -58,10 +60,20 @@ export class AdminController {
       ];
     }
 
-    const usuarios = await this.prisma.usuarios.findMany({
-      where,
-      orderBy: [{ Status: 'asc' }, { Nome: 'asc' }],
-    });
+    const sortField =
+      query.sortBy === 'id' ? 'Id'
+      : query.sortBy === 'matricula' ? 'Matricula'
+      : query.sortBy === 'email' ? 'Email'
+      : query.sortBy === 'perfil' ? 'Perfil'
+      : query.sortBy === 'status' ? 'Status'
+      : query.sortBy === 'nome' ? 'Nome'
+      : null;
+    const sortDir: Prisma.SortOrder = query.sortDesc === 'true' ? 'desc' : 'asc';
+    const orderBy: Prisma.UsuariosOrderByWithRelationInput[] = sortField
+      ? [{ [sortField]: sortDir }]
+      : [{ Status: 'asc' }, { Nome: 'asc' }];
+
+    const usuarios = await this.prisma.usuarios.findMany({ where, orderBy });
     return usuarios.map((u) => this.map(u));
   }
 
@@ -115,6 +127,22 @@ export class AdminController {
     if (!UNIDADES.includes(dto.unidade)) throw new BadRequestException({ message: 'Unidade inválida.' });
     await this.requireUser(id);
     await this.prisma.usuarios.update({ where: { Id: id }, data: { Setor: dto.setor, Unidade: dto.unidade } });
+
+    // O Setor gravado na solicitação é uma cópia (usado para rotear ao gestor do setor).
+    // Sem isso, uma solicitação ainda pendente de aprovação do Gestor ficaria "presa"
+    // no setor antigo do usuário e nenhum gestor conseguiria vê-la.
+    await this.prisma.solicitacoes.updateMany({
+      where: {
+        Status: 'AguardandoGestor',
+        GestorAprovadorId: null,
+        OR: [
+          { ColaboradorId: id },
+          { ColaboradorId: null, SolicitanteId: id },
+        ],
+      },
+      data: { Setor: dto.setor },
+    });
+
     return { message: 'Setor e unidade atualizados.' };
   }
 

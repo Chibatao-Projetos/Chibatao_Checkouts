@@ -56,7 +56,6 @@ export interface ListParams {
   sortDesc?: boolean;
   incluirHistorico?: boolean;
   somenteExtraordinarias?: boolean;
-  pendentesAuditoria?: boolean;
   minhas?: boolean;
   nome?: string;
   destino?: string;
@@ -138,6 +137,8 @@ export interface AdminListParams {
   id?: string;
   nome?: string;
   busca?: string;
+  sortBy?: string;
+  sortDesc?: boolean;
 }
 
 export const adminService = {

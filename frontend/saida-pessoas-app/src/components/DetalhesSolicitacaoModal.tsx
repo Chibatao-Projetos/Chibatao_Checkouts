@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { solicitacaoService } from '../services/api';
 import ReprovacaoModal from './ReprovacaoModal';
 import ConfirmacaoAprovacaoModal from './ConfirmacaoAprovacaoModal';
+import { UNIDADES_COM_RH_OBRIGATORIO } from '../constants/opcoes';
 
 const NAVY      = '#0F2744';
 const BLUE      = '#2563EB';
@@ -214,7 +215,9 @@ const DetalhesSolicitacaoModal: React.FC<Props> = ({ solicitacao: s, onClose, on
       items.push({ icon: 'clock', badgeBg: '#D6A21A', role: 'Gestor(a)', text: 'Pendente de aprovação', textColor: '#92400E' });
     }
 
-    // RH — só aparece se já passou do gestor ou foi reprovado pelo RH
+    // RH — Particular sempre exige; À Serviço só exige para as unidades em UNIDADES_COM_RH_OBRIGATORIO.
+    const requerRH = s.tipoSaida === 'Particular' || s.isExtraordinaria || UNIDADES_COM_RH_OBRIGATORIO.includes(s.unidadeDestino ?? '');
+
     if (s.isBypassRH) {
       if (s.dataAprovacaoRH) {
         items.push({ icon: 'check', badgeBg: GREEN_DK, role: 'RH (post-facto)', text: `Validado por ${s.nomeAprovadorRH ?? '—'} · ${fmt(s.dataAprovacaoRH)}`, textColor: GREEN_TX });
@@ -225,6 +228,8 @@ const DetalhesSolicitacaoModal: React.FC<Props> = ({ solicitacao: s, onClose, on
       items.push({ icon: 'x', badgeBg: RED, role: 'RH', text: `Reprovado por ${s.nomeAprovadorRH ?? '—'} · ${fmt(s.dataAprovacaoRH)}`, textColor: RED });
     } else if (s.dataAprovacaoRH) {
       items.push({ icon: 'check', badgeBg: GREEN_DK, role: 'RH', text: `Aprovado por ${s.nomeAprovadorRH ?? '—'} · ${fmt(s.dataAprovacaoRH)}`, textColor: GREEN_TX });
+    } else if (!requerRH) {
+      items.push({ icon: 'arrow', badgeBg: '#94A3B8', role: 'RH', text: 'Dispensado — não exigido para este tipo de saída', textColor: '#475569' });
     } else if (!reprovadoPorGestor) {
       items.push({ icon: 'clock', badgeBg: '#D6A21A', role: 'RH', text: 'Pendente de validação', textColor: '#92400E' });
     }

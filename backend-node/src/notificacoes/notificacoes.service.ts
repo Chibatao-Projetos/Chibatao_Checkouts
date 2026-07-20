@@ -81,6 +81,11 @@ export class NotificacaoService {
     await this.criar(this.interessados(s), 'Sua solicitação foi aprovada pelo gestor.', 'AprovacaoGestor', s.Id);
   }
 
+  /** Gestor aprovou "À Serviço" sem exigência de RH → liberado direto para a Portaria. */
+  async notificarAprovacaoGestorLiberado(s: SolicitacaoLike) {
+    await this.criar(this.interessados(s), 'Sua solicitação foi aprovada pelo gestor e liberada para a portaria.', 'AprovacaoGestor', s.Id);
+  }
+
   /** RH aprovou → interessados. */
   async notificarAprovacaoRH(s: SolicitacaoLike) {
     await this.criar(this.interessados(s), 'Sua solicitação foi aprovada pelo RH e liberada para a portaria.', 'AprovacaoRH', s.Id);

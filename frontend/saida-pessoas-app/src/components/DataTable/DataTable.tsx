@@ -130,7 +130,6 @@ const DataTable: React.FC<DataTableProps> = ({
   title = 'Registros',
 }) => {
   const [sorting, setSorting]           = useState<SortingState>([]);
-  const [loadingId, setLoadingId]       = useState<number | null>(null);
   const [reprovacaoModal, setReprovacaoModal] = useState<{ id: number; tipo: 'gestor' | 'rh' } | null>(null);
   const [detalhes, setDetalhes]         = useState<SolicitacaoResponse | null>(null);
   const [excluirAlvo, setExcluirAlvo]   = useState<SolicitacaoResponse | null>(null);
@@ -138,17 +137,7 @@ const DataTable: React.FC<DataTableProps> = ({
   const [confirmacao, setConfirmacao]   = useState<{ s: SolicitacaoResponse; variant: ConfirmacaoVariant } | null>(null);
   const [confirmando, setConfirmando]   = useState(false);
 
-  const handleAction = async (action: () => Promise<unknown>, id: number) => {
-    setLoadingId(id);
-    try {
-      await action();
-      onAction();
-    } catch (err: unknown) {
-      alert((err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Erro.');
-    } finally { setLoadingId(null); }
-  };
-
-  /* Trava de confirmação: executa a aprovação escolhida após o "Sim". */
+  /* Trava de confirmação: executa a ação escolhida após o "Sim". */
   const handleConfirmar = async (motivo?: string) => {
     if (!confirmacao) return;
     const { s, variant } = confirmacao;
@@ -157,11 +146,13 @@ const DataTable: React.FC<DataTableProps> = ({
       if (variant === 'aprovar' && perfil === 'Gestor') await solicitacaoService.aprovarGestor(s.id);
       else if (variant === 'aprovar')                   await solicitacaoService.aprovarRH(s.id);
       else if (variant === 'excecao')                   await solicitacaoService.aprovarGestorExcecao(s.id, motivo);
-      else                                              await solicitacaoService.validarBypass(s.id);
+      else if (variant === 'validarPostFacto')           await solicitacaoService.validarBypass(s.id);
+      else if (variant === 'registrarSaida')             await solicitacaoService.registrarSaida(s.id, nomeVigilante ?? 'Vigilante');
+      else if (variant === 'registrarRetorno')           await solicitacaoService.registrarRetorno(s.id);
       setConfirmacao(null);
       onAction();
     } catch (err: unknown) {
-      alert((err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Erro ao aprovar.');
+      alert((err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Erro ao processar.');
     } finally { setConfirmando(false); }
   };
 
@@ -179,7 +170,6 @@ const DataTable: React.FC<DataTableProps> = ({
 
   /* Ações por linha — ícones circulares, compartilhado entre a tabela (desktop) e os cards (mobile). */
   const renderAcoes = (s: SolicitacaoResponse) => {
-    const busy = loadingId === s.id;
     const auditoriaPendente = s.isBypassRH && !s.dataAprovacaoRH;
     return (
       <div className="d-flex gap-2 flex-nowrap justify-content-center">
@@ -192,20 +182,20 @@ const DataTable: React.FC<DataTableProps> = ({
           <>
             <IconBtn
               icon={<CheckIcon />} bg="#ECFDF5" color="#16A34A" border="#BBF7D0"
-              title="Aceitar" disabled={busy} onClick={() => setConfirmacao({ s, variant: 'aprovar' })}
+              title="Aceitar" onClick={() => setConfirmacao({ s, variant: 'aprovar' })}
             />
             <IconBtn
               icon={<XIcon />} bg="#FEF2F2" color="#DC2626" border="#FECACA"
-              title="Reprovar" disabled={busy} onClick={() => setReprovacaoModal({ id: s.id, tipo: 'gestor' })}
+              title="Reprovar" onClick={() => setReprovacaoModal({ id: s.id, tipo: 'gestor' })}
             />
           </>
         )}
 
-        {!isHistorico && perfil === 'Gestor' && s.status === 'AguardandoRH' && (
+        {!isHistorico && perfil === 'Gestor' && s.status === 'AguardandoRH' && s.tipoSaida === 'Particular' && !s.isExtraordinaria && (
           <IconBtn
             icon={<WarningIcon />} bg="#FFFBEB" color="#B45309" border="#FDE68A"
             title="Exceção Máxima — RH ausente, libera direto para a Portaria"
-            disabled={busy} onClick={() => setConfirmacao({ s, variant: 'excecao' })}
+            onClick={() => setConfirmacao({ s, variant: 'excecao' })}
           />
         )}
 
@@ -213,11 +203,11 @@ const DataTable: React.FC<DataTableProps> = ({
           <>
             <IconBtn
               icon={<CheckIcon />} bg="#ECFDF5" color="#16A34A" border="#BBF7D0"
-              title="Aceitar" disabled={busy} onClick={() => setConfirmacao({ s, variant: 'aprovar' })}
+              title="Aceitar" onClick={() => setConfirmacao({ s, variant: 'aprovar' })}
             />
             <IconBtn
               icon={<XIcon />} bg="#FEF2F2" color="#DC2626" border="#FECACA"
-              title="Reprovar" disabled={busy} onClick={() => setReprovacaoModal({ id: s.id, tipo: 'rh' })}
+              title="Reprovar" onClick={() => setReprovacaoModal({ id: s.id, tipo: 'rh' })}
             />
           </>
         )}
@@ -226,29 +216,29 @@ const DataTable: React.FC<DataTableProps> = ({
           <IconBtn
             icon={<CheckIcon />} bg="#FFFBEB" color="#B45309" border="#FDE68A"
             title="Validar Post-Facto (auditoria da Exceção Máxima)"
-            disabled={busy} onClick={() => setConfirmacao({ s, variant: 'validarPostFacto' })}
+            onClick={() => setConfirmacao({ s, variant: 'validarPostFacto' })}
           />
         )}
 
         {!isHistorico && perfil === 'Portaria' && s.status === 'LiberadoPortaria' && (
           <IconBtn
             icon={<ArrowRightIcon />} bg="#ECFDF5" color="#16A34A" border="#BBF7D0"
-            title="Registrar Saída" disabled={busy}
-            onClick={() => handleAction(() => solicitacaoService.registrarSaida(s.id, nomeVigilante ?? 'Vigilante'), s.id)}
+            title="Registrar Saída"
+            onClick={() => setConfirmacao({ s, variant: 'registrarSaida' })}
           />
         )}
         {!isHistorico && perfil === 'Portaria' && s.status === 'EmTransito' && (
           <IconBtn
             icon={<ArrowLeftIcon />} bg="#FFFBEB" color="#B45309" border="#FDE68A"
-            title="Registrar Retorno" disabled={busy}
-            onClick={() => handleAction(() => solicitacaoService.registrarRetorno(s.id), s.id)}
+            title="Registrar Retorno"
+            onClick={() => setConfirmacao({ s, variant: 'registrarRetorno' })}
           />
         )}
 
         {!isHistorico && permiteExcluir && podeExcluir(s) && (
           <IconBtn
             icon={<TrashIcon />} bg="#F1F5F9" color="#64748B" border="#E2E8F0"
-            title="Excluir" disabled={busy} onClick={() => setExcluirAlvo(s)}
+            title="Excluir" onClick={() => setExcluirAlvo(s)}
           />
         )}
       </div>
@@ -312,8 +302,7 @@ const DataTable: React.FC<DataTableProps> = ({
     },
     /* Na Portaria: horários + Vigilante (penúltima) antes do Status (última). */
     ...(perfil === 'Portaria' ? [...portariaColumns, statusColumn] : [statusColumn]),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [perfil, loadingId, nomeVigilante, isHistorico, permiteExcluir]);
+  ], [perfil, nomeVigilante, isHistorico, permiteExcluir]);
 
   const table = useReactTable({
     data, columns,

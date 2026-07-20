@@ -3,6 +3,45 @@ import { useNavigate, Link } from 'react-router-dom';
 import { authService } from '../services/api';
 import { SETORES_USUARIO, UNIDADES } from '../constants/opcoes';
 
+const BG = '#073c60';
+
+const LOGO_PATHS = [
+  '/chibatao-logo.png',
+  '/chibatao-logo.jpg',
+  '/logo.png',
+  '/logo.jpg',
+  '/chibatao.png',
+];
+
+/* ── Mesmo fallback de logo usado no LoginPage ── */
+const ChibataoLogo: React.FC = () => (
+  <div className="text-center mb-4">
+    <div className="d-inline-flex flex-column align-items-center">
+      <div
+        className="rounded-3 d-flex align-items-center justify-content-center mb-3"
+        style={{ width: 100, height: 100, backgroundColor: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)' }}
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={1.25}
+          strokeLinecap="round" strokeLinejoin="round" width={56} height={56}>
+          <circle cx="12" cy="12" r="10" />
+          <path d="M2 12h20" />
+          <path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" />
+          <path d="M7 17l3-3 2 2 5-5" strokeWidth={1.5} />
+        </svg>
+      </div>
+      <p className="fw-black text-white mb-0" style={{ fontSize: '1.75rem', letterSpacing: '0.2em' }}>CHIBATÃO</p>
+      <p className="fw-light text-white mb-2" style={{ fontSize: '0.9rem', letterSpacing: '0.3em', opacity: 0.65 }}>CHECK OUTS</p>
+      <p className="small mb-0" style={{ color: 'rgba(255,255,255,0.45)', letterSpacing: '0.08em' }}>
+        Conectando o Amazonas ao Mundo
+      </p>
+    </div>
+  </div>
+);
+
+const LBL = 'form-label fw-semibold text-uppercase';
+const lblStyle: React.CSSProperties = { fontSize: '0.72rem', letterSpacing: '0.06em', color: '#6b7280' };
+const inputStyle: React.CSSProperties = { height: 48, borderRadius: 10 };
+
 const SignUpPage: React.FC = () => {
   const navigate = useNavigate();
   const [form, setForm] = useState({
@@ -17,6 +56,14 @@ const SignUpPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [logoIdx, setLogoIdx] = useState(0);
+  const [logoFailed, setLogoFailed] = useState(false);
+
+  const handleLogoError = () => {
+    const next = logoIdx + 1;
+    if (next < LOGO_PATHS.length) setLogoIdx(next);
+    else setLogoFailed(true);
+  };
 
   const set = (key: string, value: string) =>
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -55,162 +102,199 @@ const SignUpPage: React.FC = () => {
     }
   };
 
-  if (success) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-4" style={{ backgroundColor: 'rgb(15, 68, 106)' }}>
-        <div className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-md text-center">
-          <div className="text-5xl mb-4">✅</div>
-          <h2 className="text-xl font-bold text-gray-800 mb-3">Cadastro Realizado!</h2>
-
-          <div className="flex items-start gap-3 text-left bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3 mb-6">
-            <span className="text-2xl leading-none">⏳</span>
-            <div>
-              <p className="font-semibold text-yellow-800 text-sm mb-0.5">Aguarde a aprovação do acesso</p>
-              <p className="text-yellow-700 text-xs">
-                Seu cadastro foi enviado e precisa ser aprovado por um administrador antes que você possa entrar no sistema.
-              </p>
-            </div>
-          </div>
-
-          <button
-            onClick={() => navigate('/login')}
-            className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
-          >
-            Voltar para o Login
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen flex items-center justify-center p-4" style={{ backgroundColor: 'rgb(15, 68, 106)' }}>
-      <div className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-lg">
-        <div className="text-center mb-6">
-          <div className="text-4xl mb-2">📝</div>
-          <h1 className="text-2xl font-bold text-gray-800">Novo Cadastro</h1>
-          <p className="text-gray-500 text-sm mt-1">
-            Após o cadastro, aguarde a aprovação do administrador.
-          </p>
+    <div className="container-fluid vh-100 p-0">
+      <div className="row g-0 h-100">
+
+        {/* ── Coluna esquerda: Branding (mesma logo do Login) ── */}
+        <div
+          className="col-md-5 d-none d-md-flex align-items-center justify-content-center"
+          style={{ backgroundColor: BG }}
+        >
+          {logoFailed ? (
+            <ChibataoLogo />
+          ) : (
+            <img
+              src={LOGO_PATHS[logoIdx]}
+              alt="Chibatão Check Outs"
+              className="img-fluid"
+              style={{ maxWidth: '80%', maxHeight: '60vh', objectFit: 'contain' }}
+              onError={handleLogoError}
+            />
+          )}
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Nome completo *
-              </label>
-              <input
-                type="text"
-                value={form.nome}
-                onChange={(e) => set('nome', e.target.value)}
-                required
-                placeholder="Seu nome completo"
-                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+        {/* ── Coluna direita: Formulário ── */}
+        <div className="col-md-7 d-flex align-items-center justify-content-center bg-white overflow-auto">
+          <div className="w-100 px-4 px-md-5 py-4" style={{ maxWidth: 480 }}>
+
+            {/* Header mobile */}
+            <div className="d-md-none text-center mb-4">
+              <p className="fw-black mb-0" style={{ fontSize: '1.5rem', color: BG, letterSpacing: '0.15em' }}>NOVO CADASTRO</p>
+              <p className="small text-muted mb-0">Aguarde a aprovação do administrador.</p>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Matrícula *
-              </label>
-              <input
-                type="text"
-                value={form.matricula}
-                onChange={(e) => set('matricula', e.target.value)}
-                required
-                placeholder="Ex: TI001"
-                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+            <div className="d-none d-md-block mb-4">
+              <h2 className="fw-bold mb-1">Criar conta</h2>
+              <p className="text-muted small mb-0">Preencha seus dados para solicitar acesso.</p>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Setor *</label>
-              <select
-                value={form.setor}
-                onChange={(e) => set('setor', e.target.value)}
-                required
-                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            <form onSubmit={handleSubmit}>
+              <div className="mb-3">
+                <label className={LBL} style={lblStyle}>Nome completo <span className="text-danger">*</span></label>
+                <input
+                  type="text"
+                  className="form-control"
+                  style={inputStyle}
+                  value={form.nome}
+                  onChange={(e) => set('nome', e.target.value)}
+                  placeholder="Seu nome completo"
+                  required
+                  autoFocus
+                />
+              </div>
+
+              <div className="row g-3 mb-3">
+                <div className="col-6">
+                  <label className={LBL} style={lblStyle}>Matrícula <span className="text-danger">*</span></label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    style={inputStyle}
+                    value={form.matricula}
+                    onChange={(e) => set('matricula', e.target.value)}
+                    placeholder="Ex: TI001"
+                    required
+                  />
+                </div>
+                <div className="col-6">
+                  <label className={LBL} style={lblStyle}>Setor <span className="text-danger">*</span></label>
+                  <select
+                    className="form-select"
+                    style={inputStyle}
+                    value={form.setor}
+                    onChange={(e) => set('setor', e.target.value)}
+                    required
+                  >
+                    <option value="">Selecione…</option>
+                    {SETORES_USUARIO.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div className="mb-3">
+                <label className={LBL} style={lblStyle}>Unidade <span className="text-danger">*</span></label>
+                <select
+                  className="form-select"
+                  style={inputStyle}
+                  value={form.unidade}
+                  onChange={(e) => set('unidade', e.target.value)}
+                  required
+                >
+                  <option value="">Selecione…</option>
+                  {UNIDADES.map((u) => <option key={u} value={u}>{u}</option>)}
+                </select>
+              </div>
+
+              <div className="mb-3">
+                <label className={LBL} style={lblStyle}>E-mail <span className="text-danger">*</span></label>
+                <input
+                  type="email"
+                  className="form-control"
+                  style={inputStyle}
+                  value={form.email}
+                  onChange={(e) => set('email', e.target.value)}
+                  placeholder="seu@email.com"
+                  autoComplete="email"
+                  required
+                />
+              </div>
+
+              <div className="row g-3 mb-3">
+                <div className="col-6">
+                  <label className={LBL} style={lblStyle}>Senha <span className="text-danger">*</span></label>
+                  <input
+                    type="password"
+                    className="form-control"
+                    style={inputStyle}
+                    value={form.senha}
+                    onChange={(e) => set('senha', e.target.value)}
+                    placeholder="Mín. 6 caracteres"
+                    autoComplete="new-password"
+                    required
+                  />
+                </div>
+                <div className="col-6">
+                  <label className={LBL} style={lblStyle}>Confirmar Senha <span className="text-danger">*</span></label>
+                  <input
+                    type="password"
+                    className="form-control"
+                    style={inputStyle}
+                    value={form.confirmarSenha}
+                    onChange={(e) => set('confirmarSenha', e.target.value)}
+                    placeholder="Repita a senha"
+                    autoComplete="new-password"
+                    required
+                  />
+                </div>
+              </div>
+
+              {error && (
+                <div className="alert alert-danger py-2 small mb-3">{error}</div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="btn btn-primary w-100 py-2 mt-1 fw-semibold"
+                style={{ backgroundColor: BG, borderColor: BG }}
               >
-                <option value="">Selecione…</option>
-                {SETORES_USUARIO.map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </div>
+                {loading ? 'Cadastrando…' : 'Criar Conta'}
+              </button>
+            </form>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Unidade *</label>
-              <select
-                value={form.unidade}
-                onChange={(e) => set('unidade', e.target.value)}
-                required
-                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Selecione…</option>
-                {UNIDADES.map((u) => <option key={u} value={u}>{u}</option>)}
-              </select>
-            </div>
-
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">E-mail *</label>
-              <input
-                type="email"
-                value={form.email}
-                onChange={(e) => set('email', e.target.value)}
-                required
-                placeholder="seu@email.com"
-                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Senha *</label>
-              <input
-                type="password"
-                value={form.senha}
-                onChange={(e) => set('senha', e.target.value)}
-                required
-                placeholder="Mín. 6 caracteres"
-                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Confirmar Senha *
-              </label>
-              <input
-                type="password"
-                value={form.confirmarSenha}
-                onChange={(e) => set('confirmarSenha', e.target.value)}
-                required
-                placeholder="Repita a senha"
-                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          </div>
-
-          {error && (
-            <p className="text-red-600 text-sm bg-red-50 border border-red-200 rounded px-3 py-2">
-              {error}
+            <p className="text-center small text-muted mt-4">
+              Já tem conta?{' '}
+              <Link to="/login" className="fw-medium text-decoration-none" style={{ color: BG }}>
+                Fazer login
+              </Link>
             </p>
-          )}
+          </div>
+        </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-60"
-          >
-            {loading ? 'Cadastrando…' : 'Criar Conta'}
-          </button>
-
-          <p className="text-center text-sm text-gray-500">
-            Já tem conta?{' '}
-            <Link to="/login" className="text-blue-600 hover:underline font-medium">
-              Fazer login
-            </Link>
-          </p>
-        </form>
       </div>
+
+      {/* Modal: cadastro realizado (fica sobre a própria tela de cadastro) */}
+      {success && (
+        <div
+          className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center px-3"
+          style={{ background: 'rgba(0,0,0,0.5)', zIndex: 1080 }}
+        >
+          <div
+            className="bg-white rounded-4 shadow-lg p-4 p-md-5 text-center"
+            style={{ maxWidth: 420, width: '100%' }}
+          >
+            <div style={{ fontSize: '2.75rem', lineHeight: 1 }}>✅</div>
+            <h2 className="fw-bold mt-3 mb-3" style={{ color: BG }}>Cadastro Realizado!</h2>
+
+            <div className="d-flex align-items-start gap-3 text-start bg-warning-subtle border border-warning-subtle rounded-3 px-3 py-3 mb-4">
+              <span style={{ fontSize: '1.5rem', lineHeight: 1 }}>⏳</span>
+              <div>
+                <p className="fw-semibold small mb-1" style={{ color: '#92400e' }}>Aguarde a aprovação do acesso</p>
+                <p className="small mb-0" style={{ color: '#92400e' }}>{success}</p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => navigate('/login')}
+              className="btn w-100 py-2 fw-semibold text-white"
+              style={{ backgroundColor: BG, borderColor: BG }}
+            >
+              Voltar para o Login
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

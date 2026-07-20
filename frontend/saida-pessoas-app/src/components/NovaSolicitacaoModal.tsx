@@ -3,7 +3,7 @@ import { Modal } from 'react-bootstrap';
 import { solicitacaoService, usuariosService } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import type { ColaboradorSimples, TipoSaida } from '../types';
-import { UNIDADES_SETORES } from '../constants/opcoes';
+import { UNIDADES_SETORES, UNIDADES_COM_RH_OBRIGATORIO } from '../constants/opcoes';
 
 const BG = 'rgb(15, 68, 106)';
 
@@ -116,6 +116,8 @@ const NovaSolicitacaoModal: React.FC<Props> = ({ show, onClose, onCreated }) => 
     () => (form.unidadeDestino ? UNIDADES_SETORES[form.unidadeDestino] ?? [] : []),
     [form.unidadeDestino],
   );
+  /* Unidades sem setores internos cadastrados (ex.: JF) pulam a seleção de setor. */
+  const unidadeSemSetores = !!form.unidadeDestino && setoresDisponiveis.length === 0;
 
   const handleUnidadeChange = (unidade: string) => {
     setForm((p) => ({ ...p, unidadeDestino: unidade, setorDestino: '' }));
@@ -140,11 +142,13 @@ const NovaSolicitacaoModal: React.FC<Props> = ({ show, onClose, onCreated }) => 
 
     if (!isParticular) {
       if (!form.unidadeDestino) { setError('Selecione a unidade de destino.'); return; }
-      if (!form.setorDestino)   { setError('Selecione o setor de destino.');   return; }
+      if (!unidadeSemSetores && !form.setorDestino) { setError('Selecione o setor de destino.'); return; }
       if (!form.motivo.trim())  { setError('Informe o motivo da saída.');       return; }
     }
 
-    const destinoServico = `${form.unidadeDestino} — ${form.setorDestino} — Motivo: ${form.motivo.trim()}`;
+    const destinoServico = form.setorDestino
+      ? `${form.unidadeDestino} — ${form.setorDestino} — Motivo: ${form.motivo.trim()}`
+      : `${form.unidadeDestino} — Motivo: ${form.motivo.trim()}`;
 
     setLoading(true);
     try {
@@ -358,7 +362,7 @@ const NovaSolicitacaoModal: React.FC<Props> = ({ show, onClose, onCreated }) => 
             ) : (
               <>
                 <div className="row g-3 mb-3">
-                  <div className="col-md-6">
+                  <div className={unidadeSemSetores ? 'col-12' : 'col-md-6'}>
                     <label className={LBL} style={lblStyle}>Unidade de Destino <span className="text-danger">*</span></label>
                     <select
                       className="form-select"
@@ -371,24 +375,31 @@ const NovaSolicitacaoModal: React.FC<Props> = ({ show, onClose, onCreated }) => 
                         <option key={u} value={u}>{u}</option>
                       ))}
                     </select>
+                    {UNIDADES_COM_RH_OBRIGATORIO.includes(form.unidadeDestino) && (
+                      <small className="text-warning-emphasis d-block mt-1">
+                        ⚠ Esta unidade exige validação do RH.
+                      </small>
+                    )}
                   </div>
-                  <div className="col-md-6">
-                    <label className={LBL} style={lblStyle}>Setor de Destino <span className="text-danger">*</span></label>
-                    <select
-                      className="form-select"
-                      value={form.setorDestino}
-                      onChange={(e) => set('setorDestino', e.target.value)}
-                      disabled={!form.unidadeDestino}
-                      required
-                    >
-                      <option value="">
-                        {form.unidadeDestino ? 'Selecione…' : 'Escolha uma unidade primeiro'}
-                      </option>
-                      {setoresDisponiveis.map((s) => (
-                        <option key={s} value={s}>{s}</option>
-                      ))}
-                    </select>
-                  </div>
+                  {!unidadeSemSetores && (
+                    <div className="col-md-6">
+                      <label className={LBL} style={lblStyle}>Setor de Destino <span className="text-danger">*</span></label>
+                      <select
+                        className="form-select"
+                        value={form.setorDestino}
+                        onChange={(e) => set('setorDestino', e.target.value)}
+                        disabled={!form.unidadeDestino}
+                        required
+                      >
+                        <option value="">
+                          {form.unidadeDestino ? 'Selecione…' : 'Escolha uma unidade primeiro'}
+                        </option>
+                        {setoresDisponiveis.map((s) => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                 </div>
 
                 <div className="mb-0">

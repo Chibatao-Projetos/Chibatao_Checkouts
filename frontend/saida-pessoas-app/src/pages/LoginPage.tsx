@@ -109,7 +109,7 @@ const LoginPage: React.FC = () => {
             <form onSubmit={handleSubmit}>
               <div className="mb-3">
                 <label className="form-label fw-semibold text-uppercase" style={{ fontSize: '0.72rem', letterSpacing: '0.06em', color: '#6b7280' }}>
-                  E-mail ou Matrícula
+                  Login
                 </label>
                 <div className="position-relative">
                   <span className="position-absolute top-50 translate-middle-y text-muted" style={{ left: 14, pointerEvents: 'none' }}>
@@ -124,7 +124,7 @@ const LoginPage: React.FC = () => {
                     style={{ paddingLeft: 42, height: 48, borderRadius: 10 }}
                     value={identificacao}
                     onChange={e => setIdentificacao(e.target.value)}
-                    placeholder="ex: 123456 ou nome@empresa.com.br"
+                    placeholder="matrícula ou e-mail"
                     autoComplete="username"
                     required
                     autoFocus
@@ -149,7 +149,7 @@ const LoginPage: React.FC = () => {
                     style={{ paddingLeft: 42, paddingRight: 44, height: 48, borderRadius: 10 }}
                     value={senha}
                     onChange={e => setSenha(e.target.value)}
-                    placeholder=""
+                    placeholder="Senha"
                     autoComplete="current-password"
                     required
                   />

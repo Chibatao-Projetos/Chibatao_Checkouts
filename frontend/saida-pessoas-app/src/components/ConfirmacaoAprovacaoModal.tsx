@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Modal } from 'react-bootstrap';
 
-export type ConfirmacaoVariant = 'aprovar' | 'excecao' | 'validarPostFacto';
+export type ConfirmacaoVariant = 'aprovar' | 'excecao' | 'validarPostFacto' | 'registrarSaida' | 'registrarRetorno';
 
 interface Props {
   show: boolean;
@@ -18,6 +18,16 @@ const TITULOS: Record<ConfirmacaoVariant, string> = {
   aprovar:          'Confirmar aprovação',
   excecao:          '⚠ Aprovação de Exceção Máxima',
   validarPostFacto: 'Validação post-facto (RH)',
+  registrarSaida:   'Confirmar Registro de Saída',
+  registrarRetorno: 'Confirmar Registro de Retorno',
+};
+
+const MENSAGENS: Record<ConfirmacaoVariant, string> = {
+  aprovar:          'Tem certeza que deseja aprovar essa solicitação do usuário',
+  excecao:          'Tem certeza que deseja aprovar essa solicitação do usuário',
+  validarPostFacto: 'Tem certeza que deseja aprovar essa solicitação do usuário',
+  registrarSaida:   'Tem certeza que deseja realizar a saída do colaborador',
+  registrarRetorno: 'Tem certeza que deseja registrar o retorno do colaborador',
 };
 
 /**
@@ -45,7 +55,7 @@ const ConfirmacaoAprovacaoModal: React.FC<Props> = ({
 
       <Modal.Body>
         <p className="mb-2" style={{ fontSize: '0.95rem' }}>
-          Tem certeza que deseja aprovar essa solicitação do usuário{' '}
+          {MENSAGENS[variant]}{' '}
           <strong>{nomeUsuario}</strong>?
         </p>
 
